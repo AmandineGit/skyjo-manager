@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stats {{ game_type }} — Skyjo</title>
+  <link rel="stylesheet" href="/skyjo/static/style.css">
+</head>
+<body>
+  <div class="page-content">
+  <div style="margin-bottom: 20px;">
+    <button onclick="history.back()" class="button button-secondary">← Retour</button>
+  </div>
+  <h1>📊 Statistiques - {{ game_type }}</h1>
+  <p style="font-size: 1rem; color: #666; margin-bottom: 25px;">
+    {{ total_games }} partie{{ 's' if total_games > 1 else '' }} · {{ total_rounds }} round{{ 's' if total_rounds > 1 else '' }}
+  </p>
+
+  {% if stats %}
+  <!-- Tuiles Metro style -->
+  <section class="metro-tiles">
+    <!-- Tuile Podium -->
+    <div class="metro-tile tile-podium">
+      <div class="tile-header">
+        <span class="tile-icon">🏆</span>
+        <span class="tile-title">Podium</span>
+      </div>
+      <div class="tile-content">
+        {% if podium|length >= 1 %}
+        <div class="tile-podium-item tile-gold">
+          <span class="tile-medal">🥇</span>
+          <span class="tile-player">{{ podium[0].player }}</span>
+          <span class="tile-score">{{ '%.1f'|format(podium[0].mean) }}</span>
+        </div>
+        {% endif %}
+        {% if podium|length >= 2 %}
+        <div class="tile-podium-item tile-silver">
+          <span class="tile-medal">🥈</span>
+          <span class="tile-player">{{ podium[1].player }}</span>
+          <span class="tile-score">{{ '%.1f'|format(podium[1].mean) }}</span>
+        </div>
+        {% endif %}
+        {% if podium|length >= 3 %}
+        <div class="tile-podium-item tile-bronze">
+          <span class="tile-medal">🥉</span>
+          <span class="tile-player">{{ podium[2].player }}</span>
+          <span class="tile-score">{{ '%.1f'|format(podium[2].mean) }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Tuile Looser du pire -->
+    {% if worst_single %}
+    <div class="metro-tile tile-worst">
+      <div class="tile-header">
+        <span class="tile-icon">💀</span>
+        <span class="tile-title">Looser du pire</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ worst_single.score }}</div>
+        <div class="tile-main-label">points</div>
+        <div class="tile-player-name">{{ worst_single.player }}</div>
+        <div class="tile-details">Round #{{ worst_single.round_number }} · Partie #{{ worst_single.game_id }}</div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Tuile Boss des coups de bol -->
+    {% if best_single %}
+    <div class="metro-tile tile-best">
+      <div class="tile-header">
+        <span class="tile-icon">✨</span>
+        <span class="tile-title">Boss des coups de bol</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ best_single.score }}</div>
+        <div class="tile-main-label">points</div>
+        <div class="tile-player-name">{{ best_single.player }}</div>
+        <div class="tile-details">Round #{{ best_single.round_number }} · Partie #{{ best_single.game_id }}</div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Tuile Total parties -->
+    <div class="metro-tile tile-games">
+      <div class="tile-header">
+        <span class="tile-icon">🎮</span>
+        <span class="tile-title">Parties jouées</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ total_games }}</div>
+        <div class="tile-main-label">partie{{ 's' if total_games > 1 else '' }}</div>
+        <div class="tile-secondary-value">{{ total_rounds }} rounds</div>
+      </div>
+    </div>
+
+    <!-- Tuile Total joueurs -->
+    <div class="metro-tile tile-players">
+      <div class="tile-header">
+        <span class="tile-icon">👥</span>
+        <span class="tile-title">Joueurs actifs</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ stats|length }}</div>
+        <div class="tile-main-label">joueur{{ 's' if stats|length > 1 else '' }}</div>
+        <div class="tile-secondary-value">{{ (total_rounds / stats|length)|round|int }} rounds/joueur</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tableau détaillé -->
+  <section class="stats-detail-section">
+    <h2>📈 Statistiques détaillées</h2>
+    <div class="table-wrap">
+      <table class="stats-table">
+        <thead>
+          <tr>
+            <th class="rank-col">Rang</th>
+            <th class="player-name-col">Joueur</th>
+            <th class="stat-col">Moyenne</th>
+            <th class="stat-col stat-col-hide-mobile">Médiane</th>
+            <th class="stat-col stat-col-hide-mobile">Meilleur</th>
+            <th class="stat-col stat-col-hide-mobile">Pire</th>
+            <th class="stat-col stat-col-hide-mobile">Rounds</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for s in stats %}
+          <tr>
+            <td class="rank-col">
+              {% if loop.index == 1 %}
+                🥇
+              {% elif loop.index == 2 %}
+                🥈
+              {% elif loop.index == 3 %}
+                🥉
+              {% else %}
+                {{ loop.index }}
+              {% endif %}
+            </td>
+            <td class="player-name-col"><strong>{{ s.player }}</strong></td>
+            <td class="stat-col">{{ '%.2f'|format(s.mean) }}</td>
+            <td class="stat-col stat-col-hide-mobile">{{ '%.2f'|format(s.median) }}</td>
+            <td class="stat-col stat-col-hide-mobile stat-best">{{ s.best }}</td>
+            <td class="stat-col stat-col-hide-mobile stat-worst">{{ s.worst }}</td>
+            <td class="stat-col stat-col-hide-mobile">{{ s.rounds }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {% else %}
+  <p style="text-align: center; color: #999; margin-top: 40px;">Aucune statistique disponible pour ce type de jeu</p>
+  {% endif %}
+
+  <div style="margin-top: 30px;">
+    <a href="/skyjo/stats" class="button">← Autres types de jeu</a>
+  </div>
+  <button onclick="history.back()" class="back-button">← Retour</button>
+  </div>
+</body>
+</html>

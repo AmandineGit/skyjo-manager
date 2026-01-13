@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nouvelle partie — Skyjo</title>
+  <link rel="stylesheet" href="/skyjo/static/style.css">
+</head>
+<body>
+  <div class="page-content">
+  <h1>Nouvelle partie</h1>
+  <p style="font-size: 1.1rem; color: #666; margin-bottom: 30px;">Choisissez le type de jeu</p>
+
+  <!-- Tuiles de sélection du type -->
+  <div id="game-type-selection" class="game-type-grid">
+    <div class="game-type-card" data-type="Skyjo">
+      <div class="game-type-icon">🎯</div>
+      <h2>Skyjo</h2>
+      <p>Le jeu classique</p>
+    </div>
+    <div class="game-type-card" data-type="Skyjo Action">
+      <div class="game-type-icon">⚡</div>
+      <h2>Skyjo Action</h2>
+      <p>Plus de fun et d'action</p>
+    </div>
+  </div>
+
+  <!-- Formulaire caché au début -->
+  <form method="post" action="/skyjo/new" id="game-form" style="display: none;">
+    <input type="hidden" name="type" id="game-type">
+
+    <div style="margin-bottom: 20px;">
+      <h2 style="margin-bottom: 10px;">Type sélectionné : <span id="selected-game-type"></span></h2>
+      <button type="button" id="change-type-btn" class="button button-secondary">Changer de type</button>
+      <button type="button" id="rules-button" class="button button-rules" style="margin-left: 8px;">Voir les règles</button>
+    </div>
+
+    <label>Joueurs:</label>
+    <div id="players-list">
+      <div><input name="player_1" class="player-input" placeholder="Joueur 1"></div>
+      <div><input name="player_2" class="player-input" placeholder="Joueur 2"></div>
+      <div><input name="player_3" class="player-input" placeholder="Joueur 3"></div>
+      <div><input name="player_4" class="player-input" placeholder="Joueur 4"></div>
+      <div><input name="player_5" class="player-input" placeholder="Joueur 5"></div>
+      <div class="extra-player"><input name="player_6" class="player-input" placeholder="Joueur 6"></div>
+      <div class="extra-player"><input name="player_7" class="player-input" placeholder="Joueur 7"></div>
+      <div class="extra-player"><input name="player_8" class="player-input" placeholder="Joueur 8"></div>
+      <div class="extra-player"><input name="player_9" class="player-input" placeholder="Joueur 9"></div>
+      <div class="extra-player"><input name="player_10" class="player-input" placeholder="Joueur 10"></div>
+    </div>
+    <button type="button" id="add-player">Plus de joueurs</button>
+
+    <label>Commentaires: <input name="comments"></label><br>
+    <input type="hidden" name="players" value="">
+    <button type="submit" class="button button-submit">Créer une partie</button>
+  </form>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var gameTypeSelection = document.getElementById('game-type-selection');
+    var gameForm = document.getElementById('game-form');
+    var gameTypeInput = document.getElementById('game-type');
+    var selectedGameTypeSpan = document.getElementById('selected-game-type');
+    var changeTypeBtn = document.getElementById('change-type-btn');
+    var rulesBtn = document.getElementById('rules-button');
+
+    // Gestion des tuiles de sélection
+    var gameTypeCards = document.querySelectorAll('.game-type-card');
+    gameTypeCards.forEach(function(card) {
+      card.addEventListener('click', function() {
+        var gameType = card.getAttribute('data-type');
+        gameTypeInput.value = gameType;
+        selectedGameTypeSpan.textContent = gameType;
+
+        // Cacher la sélection, afficher le formulaire
+        gameTypeSelection.style.display = 'none';
+        gameForm.style.display = 'block';
+      });
+    });
+
+    // Changer de type
+    changeTypeBtn.addEventListener('click', function() {
+      gameForm.style.display = 'none';
+      gameTypeSelection.style.display = 'grid';
+      gameTypeInput.value = '';
+    });
+
+    // Bouton règles
+    rulesBtn.addEventListener('click', function() {
+      var gameType = gameTypeInput.value;
+      if (gameType && gameType !== '') {
+        var url = '/skyjo/rules/' + encodeURIComponent(gameType);
+        window.open(url, '_blank', 'width=800,height=600');
+      }
+    });
+
+    // Gestion joueurs supplémentaires
+    var btn = document.getElementById('add-player');
+    btn.addEventListener('click', function () {
+      var next = document.querySelector('.extra-player:not(.visible)');
+      if (next) {
+        next.style.display = 'block';
+        next.classList.add('visible');
+      }
+      if (!document.querySelector('.extra-player:not(.visible)')) {
+        btn.style.display = 'none';
+      }
+    });
+
+    // Soumission du formulaire
+    var form = document.querySelector('form');
+    form.addEventListener('submit', function () {
+      var names = [];
+      for (var i=1;i<=10;i++){
+        var el = document.querySelector('[name="player_'+i+'"]');
+        if (el && el.value.trim()) names.push(el.value.trim());
+      }
+      document.querySelector('[name=players]').value = names.join(',');
+    });
+  });
+  </script>
+  <button onclick="history.back()" class="back-button">← Retour</button>
+  </div>
+</body>
+</html>

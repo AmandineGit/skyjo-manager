@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion — Skyjo</title>
+  <link rel="stylesheet" href="/skyjo/static/style.css">
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-box">
+      <div class="login-icon">🎯</div>
+      <h1>Skyjo Manager</h1>
+      <p style="color: #666; margin-bottom: 30px;">Entrez le code d'accès pour continuer</p>
+
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          {% for message in messages %}
+            <div class="flash-message flash-error">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form method="post" class="login-form">
+        <div class="form-group">
+          <label for="code">Code d'accès</label>
+          <input
+            type="password"
+            id="code"
+            name="code"
+            class="login-input"
+            placeholder="Entrez le code"
+            autofocus
+            required
+          >
+        </div>
+        <button type="submit" class="button button-submit login-submit">🔓 Accéder</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

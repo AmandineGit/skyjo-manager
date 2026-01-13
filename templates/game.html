@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Partie #{{ game['id'] }} — Skyjo</title>
+  <link rel="stylesheet" href="/skyjo/static/style.css">
+</head>
+<body>
+  <div class="page-content">
+  {% if game['finished'] %}
+    {% set winner = totals|dictsort(by='value')|first %}
+    <div class="winner-badge">
+      🏆 Gagnant : {{ winner[0] }}<br>
+      <span class="winner-score">{{ winner[1] }} pts</span>
+    </div>
+  {% endif %}
+  <h1>🎮 Partie #{{ game['id'] }}</h1>
+  <p style="font-size: 1rem; color: #666; margin-bottom: 20px;">
+    {{ game['type'] }} — {{ game['created_at']|format_date_fr }}
+    {% if not game['finished'] %}
+      <span style="color: #43e97b; font-weight: 600;"> • En cours</span>
+    {% else %}
+      <span style="color: #e74c3c; font-weight: 600;"> • Terminée</span>
+    {% endif %}
+  </p>
+  <div style="margin-bottom: 30px;">
+    <button type="button" class="button button-rules" onclick="window.open('/skyjo/rules/{{ game['type'] }}', '_blank', 'width=800,height=600')">Voir les règles</button>
+  </div>
+
+  <!-- Tuile Score total -->
+  <section class="game-scores-section">
+    <h2 style="text-align: center; margin-bottom: 20px;">📊 Scores actuels</h2>
+    <div class="game-scores-grid">
+      {% for p in players %}
+      <div class="game-score-card">
+        <div class="game-score-player">{{ p }}</div>
+        <div class="game-score-value">
+          <span class="current-total" data-player="{{ p }}">{{ totals.get(p, 0) }}</span>
+          <span class="game-score-label">pts</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if not game['finished'] %}
+  <h2 style="margin-top: 40px; margin-bottom: 20px;">⚡ Round en cours</h2>
+  {% endif %}
+  {% if game['finished'] %}
+    <p style="text-align: center; color: #e74c3c; font-weight: 600; font-size: 1.1rem; margin: 30px 0;">🏁 La partie est terminée</p>
+  {% else %}
+    <form method="post" id="submit-round-form" action="/skyjo/submit_round/{{ game['id'] }}">
+    <div class="round-form-wrapper">
+      <table class="round-form-table">
+        <thead>
+          <tr>
+            <th>Joueur</th>
+            <th class="hide-mobile">Total actuel</th>
+            <th>Score manche</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for p in players %}
+          <tr>
+            <td><strong>{{ p }}</strong></td>
+            <td class="hide-mobile"><span class="current-total" data-player="{{ p }}">{{ totals.get(p, 0) }}</span></td>
+            <td><input class="score-input" name="score_{{ p }}" type="text" inputmode="numeric" pattern="^-?\d*$" placeholder="0" value="0" data-player="{{ p }}"></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <p id="finish-warning" style="display:none;color:#e74c3c;font-weight:bold;margin: 15px 0;">⚠️ Attention : un joueur atteindra 100 points ou plus — la partie sera terminée automatiquement.</p>
+
+    <div style="margin-top: 20px;">
+      <button type="submit" class="button button-submit">✓ Valider round</button>
+      <button type="button" class="button button-secondary" onclick="document.querySelectorAll('.score-input').forEach(el => el.value = '0')">Réinitialiser</button>
+    </div>
+    </form>
+
+    <form method="post" id="terminate-form" action="/skyjo/terminate/{{ game['id'] }}" onsubmit="return confirm('Confirmez-vous la fin de la partie ?');" style="margin-top: 15px;">
+      <button type="submit" class="button" style="background: linear-gradient(135deg, #fc5c7d 0%, #6a82fb 100%);">🏁 Terminer la partie</button>
+    </form>
+  {% endif %}
+
+  <h2 style="margin-top: 50px; margin-bottom: 20px;">📜 Historique des rounds</h2>
+  <div class="rounds-wrap">
+  <table class="rounds-table">
+    <thead>
+      <tr>
+        <th class="round-col">Round</th>
+        {% for p in players %}
+          <th class="player-col">{{ p }}</th>
+        {% endfor %}
+        <th class="ts-col">Date & heure</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in rounds_matrix %}
+      <tr>
+        <td class="round-col" data-label="Round">{{ r['round'] }}</td>
+        {% for p in players %}
+          <td class="score-cell" data-label="{{ p }}">{{ r['scores'].get(p, '') }}</td>
+        {% endfor %}
+        <td class="ts-col" data-label="Date">{% if r['timestamp'] %}{{ r['timestamp']|format_ts }}{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  <p><a href="/skyjo/export">Exporter</a></p>
+  <button onclick="history.back()" class="back-button">← Retour</button>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // Récupère les totaux actuels
+  const currentTotals = {};
+  document.querySelectorAll('.current-total').forEach(function (el) {
+    const player = el.getAttribute('data-player');
+    currentTotals[player] = parseInt(el.textContent) || 0;
+  });
+
+  const form = document.getElementById('submit-round-form');
+  if (!form) return;
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const inputs = Array.from(form.querySelectorAll('.score-input'));
+    const updates = [];
+    let willFinish = false;
+
+    for (const input of inputs) {
+      const player = input.getAttribute('data-player');
+      let val = input.value;
+      if (val === '') val = '0';
+      if (!/^-?\d+$/.test(val)) { alert('Veuillez entrer des entiers (positifs ou négatifs) pour tous les scores.'); return; }
+      const delta = parseInt(val, 10);
+      const newTotal = (currentTotals[player] || 0) + delta;
+      updates.push({ player, old: currentTotals[player] || 0, delta, newTotal });
+      if (newTotal >= 100) willFinish = true;
+    }
+
+    let message = 'Confirmez-vous la validation du round ?\n\n';
+    updates.forEach(function (u) {
+      message += u.player + ': ' + u.old + ' + ' + u.delta + ' → ' + u.newTotal + ' pts\n';
+    });
+    if (willFinish) message += '\nAttention : au moins un joueur atteindra 100 pts. La partie sera marquée comme terminée.';
+
+    if (confirm(message)) {
+      // Submit form après confirmation
+      form.submit();
+    }
+  });
+});
+</script>
+</body>
+</html>

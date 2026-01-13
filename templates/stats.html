@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Stats — Skyjo</title>
+  <link rel="stylesheet" href="/skyjo/static/style.css">
+</head>
+<body>
+  <div class="page-content">
+  <h1>Statistiques</h1>
+  <div class="table-wrap">
+    <table class="stats-table">
+      <thead>
+        <tr>
+          <th class="player-name-col">Joueur</th>
+          <th class="stat-col">Moyenne</th>
+          <th class="stat-col">Médiane</th>
+          <th class="stat-col">Meilleur</th>
+          <th class="stat-col">Pire</th>
+          <th class="stat-col">Rounds</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for s in stats %}
+        <tr>
+          <td class="player-name-col"><strong>{{ s.player }}</strong></td>
+          <td class="stat-col">{{ '%.2f'|format(s.mean) }}</td>
+          <td class="stat-col">{{ '%.2f'|format(s.median) }}</td>
+          <td class="stat-col stat-best">{{ s.best }}</td>
+          <td class="stat-col stat-worst">{{ s.worst }}</td>
+          <td class="stat-col">{{ s.rounds }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <a class="back-button" href="/skyjo/">← Retour</a>
+  </div>
+</body>
+</html>

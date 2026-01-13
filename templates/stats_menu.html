@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Statistiques — Skyjo</title>
+  <link rel="stylesheet" href="/skyjo/static/style.css">
+</head>
+<body>
+  <div class="page-content">
+  <h1>📊 Statistiques</h1>
+  <p style="font-size: 1.1rem; color: #666; margin-bottom: 30px;">Choisissez le type de jeu pour voir les statistiques détaillées</p>
+
+  <div class="stats-menu-grid">
+    {% for game_type in game_types %}
+    <a href="/skyjo/stats/{{ game_type }}" class="stats-card">
+      <div class="stats-card-icon">
+        {% if game_type == 'Skyjo' %}
+          🎯
+        {% elif game_type == 'Skyjo Action' %}
+          ⚡
+        {% else %}
+          🎲
+        {% endif %}
+      </div>
+      <h2>{{ game_type }}</h2>
+      <p>{{ games_count[game_type] }} partie{{ 's' if games_count[game_type] > 1 else '' }}</p>
+      <p class="stats-card-rounds">{{ rounds_count[game_type] }} round{{ 's' if rounds_count[game_type] > 1 else '' }}</p>
+    </a>
+    {% endfor %}
+  </div>
+
+  {% if not game_types %}
+  <p style="text-align: center; color: #999; margin-top: 40px;">Aucune partie jouée pour le moment</p>
+  {% endif %}
+
+  <button onclick="history.back()" class="back-button">← Retour</button>
+  </div>
+</body>
+</html>

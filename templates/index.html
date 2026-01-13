@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skyjo — Parties</title>
+  <link rel="stylesheet" href="/skyjo/static/style.css">
+</head>
+<body>
+  <div class="page-content">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+    <h1 style="margin: 0;">Skyjo Manager</h1>
+    <a href="/skyjo/logout" class="button button-secondary" style="margin: 0;">🔒 Déconnexion</a>
+  </div>
+
+  <div class="home-actions">
+    <a href="/skyjo/new" class="home-action-btn">
+      <span class="action-icon">➕</span>
+      <span class="action-text">Nouvelle partie</span>
+    </a>
+    {% if access_level != 'ext' %}
+    <a href="/skyjo/stats" class="home-action-btn">
+      <span class="action-icon">📊</span>
+      <span class="action-text">Stats</span>
+    </a>
+    {% endif %}
+  </div>
+
+  <form method="get" action="/skyjo/" class="search-form">
+    <label for="date">Rechercher par date :</label>
+    <div class="search-controls">
+      <input type="date" id="date" name="date" value="{{ search_date or '' }}" class="date-input">
+      <button type="submit" class="search-button">Rechercher</button>
+      {% if search_date %}
+        <a href="/skyjo/" class="button button-secondary">Réinitialiser</a>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if search_date %}
+  <h2 style="margin-top: 30px; margin-bottom: 15px;">📅 Parties du {{ search_date }}</h2>
+  {% else %}
+  <h2 style="margin-top: 30px; margin-bottom: 15px;">🎮 Parties en cours</h2>
+  {% endif %}
+
+  <ul>
+  {% for g in games %}
+    <li>
+      <a href="/skyjo/game/{{ g['id'] }}">Partie #{{ g['id'] }}</a> — {{ g['created_display'] or g['created_at'] }}{% if search_date %} — {{ 'terminée' if g['finished'] else 'en cours' }}{% endif %}
+    </li>
+  {% else %}
+    <li>Aucune partie</li>
+  {% endfor %}
+  </ul>
+  </div>
+
+  <script>
+  // Force le rechargement de la page si on y revient via le bouton retour du navigateur
+  window.addEventListener('pageshow', function(event) {
+    // Si la page vient du cache (back/forward), on recharge
+    if (event.persisted) {
+      window.location.reload();
+    }
+  });
+  </script>
+</body>
+</html>

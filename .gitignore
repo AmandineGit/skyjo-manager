@@ -1,0 +1,65 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.py[cod]
+*$py.class
+
+# Base de données (NE PAS COMMITER)
+*.db
+*.sqlite
+*.sqlite3
+
+# Fichiers de configuration sensibles
+.env
+*.log
+
+# Backups
+backup_*.db
+backup_*.xlsx
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+
+# OS
+.DS_Store
+Thumbs.db
+.directory
+
+# Logs
+logs/
+*.log
+/var/log/
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# Documentation ancienne (remplacée par README.md et CHANGELOG.md)
+AJOUT_REGLES.md
+README_REGLES.md
+CHANGELOG_REGLES.md
+README_STATS_V2.md
+CHANGELOG_METRO_TILES.md
+MOBILE_OPTIMIZATIONS.md
+BACK_BUTTON_UPDATE.md
+HOME_UX_IMPROVEMENTS.md
+
+# Exports temporaires
+export_*.xlsx

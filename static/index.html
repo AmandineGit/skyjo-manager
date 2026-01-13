@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Skyjo — Interface statique</title>
+    <style>
+      body{font-family:system-ui,Arial,sans-serif;padding:20px;max-width:900px;margin:auto}
+      header{display:flex;justify-content:space-between;align-items:center}
+      h1{margin:0}
+      .players input{width:200px;margin-right:8px}
+      table{border-collapse:collapse;width:100%;margin-top:12px}
+      th,td{border:1px solid #ddd;padding:8px;text-align:left}
+      .round-form{margin-top:12px}
+      .footer{margin-top:20px;color:#666}
+    </style>
+  </head>
+  <body>
+    <div class="page-content">
+    <header>
+      <h1>Skyjo — Demo statique</h1>
+      <small>Affichage sans backend</small>
+    </header>
+
+    <section>
+      <h2>Nouvelle partie (exemple)</h2>
+      <form id="new-game" onsubmit="return false;">
+        <label>Type:
+          <select id="game-type">
+            <option>Skyjo</option>
+            <option>Skyjo Action</option>
+          </select>
+        </label>
+        <div style="margin-top:8px">
+          <label>Joueurs (séparés par des virgules): <input id="players" value="Alice,Bob,Claire" size="60"></label>
+        </div>
+        <div style="margin-top:8px">
+          <label>Commentaires: <input id="comments" size="60"></label>
+        </div>
+        <div style="margin-top:8px">
+          <button onclick="createDemoGame()">Créer (local)</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="game-area" style="display:none">
+      <h2>Partie démo — scores cumulés</h2>
+      <ul id="totals"></ul>
+
+      <div class="round-form">
+        <h3>Ajouter une manche (demo locale)</h3>
+        <div id="round-inputs"></div>
+        <button onclick="addRound()">Enregistrer manche</button>
+      </div>
+
+      <h3>Historique</h3>
+      <table id="rounds-table">
+        <thead><tr><th>Manche</th><th>Joueur</th><th>Score</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <div class="footer">Page statique générée localement — aucune donnée n'est envoyée.</div>
+    </div>
+    <script>
+      let state = {players: [], totals: {}, rounds: []};
+
+      function createDemoGame(){
+        const players = document.getElementById('players').value.split(',').map(s=>s.trim()).filter(Boolean);
+        if(!players.length){alert('Ajoutez des joueurs');return}
+        state.players = players;
+        state.totals = {};
+        players.forEach(p=>state.totals[p]=0);
+        state.rounds = [];
+        document.getElementById('game-area').style.display='block';
+        renderTotals();
+        renderRoundInputs();
+        renderRounds();
+      }
+
+      function renderRoundInputs(){
+        const container = document.getElementById('round-inputs');
+        container.innerHTML='';
+        state.players.forEach(p=>{
+          const label = document.createElement('label');
+          label.textContent = p+': ';
+          const inp = document.createElement('input'); inp.type='number'; inp.value=0; inp.id='score_'+p;
+          label.appendChild(inp);
+          container.appendChild(label);
+          container.appendChild(document.createElement('br'));
+        });
+      }
+
+      function addRound(){
+        if(!state.players.length) return alert('Créez une partie');
+        const roundNumber = state.rounds.length+1;
+        state.players.forEach(p=>{
+          const v = parseInt(document.getElementById('score_'+p).value) || 0;
+          state.rounds.push({round:roundNumber, player:p, score:v});
+          state.totals[p] = (state.totals[p]||0) + v;
+        });
+        renderTotals(); renderRounds();
+        // demo: check reaching 100
+        for(const p of state.players){ if(state.totals[p]>=100) alert(p+' a atteint 100 — partie terminée (demo)'); }
+      }
+
+      function renderTotals(){
+        const ul = document.getElementById('totals'); ul.innerHTML='';
+        state.players.forEach(p=>{
+          const li=document.createElement('li'); li.textContent = p+' : '+(state.totals[p]||0); ul.appendChild(li);
+        });
+      }
+
+      function renderRounds(){
+        const tbody = document.querySelector('#rounds-table tbody'); tbody.innerHTML='';
+        state.rounds.forEach(r=>{
+          const tr=document.createElement('tr');
+          tr.innerHTML=`<td>${r.round}</td><td>${r.player}</td><td>${r.score}</td>`;
+          tbody.appendChild(tr);
+        });
+      }
+    </script>
+  </body>
+</html>
