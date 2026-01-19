@@ -101,7 +101,8 @@ def init_db():
         round_number INTEGER,
         player_name TEXT,
         score INTEGER,
-        created_at TEXT
+        created_at TEXT,
+        is_finisher INTEGER DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS game_rules (
         id INTEGER PRIMARY KEY,
@@ -123,6 +124,13 @@ def init_db():
     cols = [r['name'] for r in cur.fetchall()]
     if 'access_type' not in cols:
         db.execute("ALTER TABLE games ADD COLUMN access_type TEXT DEFAULT 'int'")
+        db.commit()
+
+    # Ensure schema for older DBs: add is_finisher to rounds if missing
+    cur = db.execute("PRAGMA table_info(rounds)")
+    cols = [r['name'] for r in cur.fetchall()]
+    if 'is_finisher' not in cols:
+        db.execute("ALTER TABLE rounds ADD COLUMN is_finisher INTEGER DEFAULT 0")
         db.commit()
 
     # Initialize default game rules
@@ -249,7 +257,10 @@ def new_game():
             cur.execute('INSERT INTO players (game_id, name) VALUES (?, ?)', (game_id, p))
         db.commit()
         return redirect(f"/skyjo/game/{game_id}")
-    return render_template('new_game.html')
+
+    # GET: récupérer le type de jeu depuis les paramètres URL
+    default_type = request.args.get('type', None)
+    return render_template('new_game.html', default_type=default_type)
 
 @app.route('/game/<int:game_id>', methods=['GET'])
 @require_auth
@@ -261,17 +272,36 @@ def game_view(game_id):
     totals = get_totals(game_id)
 
     # Récupère les rounds et regroupe par numéro de round en matrice
-    rows = db.execute('SELECT round_number, player_name, score, created_at FROM rounds WHERE game_id=? ORDER BY round_number, id', (game_id,)).fetchall()
+    rows = db.execute('SELECT round_number, player_name, score, created_at, is_finisher FROM rounds WHERE game_id=? ORDER BY round_number, id', (game_id,)).fetchall()
     rounds_by_num = {}
     for r in rows:
         n = r['round_number']
         if n not in rounds_by_num:
-            rounds_by_num[n] = {'round': n, 'scores': {}, 'timestamp': None}
+            rounds_by_num[n] = {'round': n, 'scores': {}, 'timestamp': None, 'finisher': None}
         rounds_by_num[n]['scores'][r['player_name']] = r['score']
+        if r['is_finisher'] == 1:
+            rounds_by_num[n]['finisher'] = r['player_name']
         if r['created_at']:
             ts = r['created_at']
             if rounds_by_num[n]['timestamp'] is None or ts > rounds_by_num[n]['timestamp']:
                 rounds_by_num[n]['timestamp'] = ts
+
+    # Calculer si le finisher a eu son score doublé
+    for round_data in rounds_by_num.values():
+        finisher = round_data['finisher']
+        if finisher and finisher in round_data['scores']:
+            scores = round_data['scores']
+            finisher_score = scores[finisher]
+            # Calculer le score minimum de TOUS les joueurs
+            min_score = min(scores.values())
+            # Le score a été doublé si finisher_score > min_score ET finisher_score est positif
+            # (le doublement a déjà été appliqué en base)
+            if finisher_score > min_score and finisher_score > 0:
+                round_data['was_doubled'] = True
+            else:
+                round_data['was_doubled'] = False
+        else:
+            round_data['was_doubled'] = False
 
     rounds_matrix = [rounds_by_num[n] for n in sorted(rounds_by_num.keys())]
 
@@ -288,9 +318,16 @@ def submit_round(game_id):
     if game['finished']:
         flash('La partie est déjà terminée')
         return redirect(f"/skyjo/game/{game_id}")
+
     cur = db.execute('SELECT MAX(round_number) as m FROM rounds WHERE game_id=?', (game_id,)).fetchone()
     next_round = (cur['m'] or 0) + 1
     players = db.execute('SELECT name FROM players WHERE game_id=?', (game_id,)).fetchall()
+
+    # Récupérer qui a terminé la manche
+    finisher = request.form.get('finisher')
+
+    # Collecter les scores de la manche
+    round_scores = {}
     for p in players:
         name = p['name']
         s = request.form.get('score_' + name)
@@ -298,9 +335,41 @@ def submit_round(game_id):
             val = int(s)
         except Exception:
             val = 0
-        db.execute('INSERT INTO rounds (game_id, round_number, player_name, score, created_at) VALUES (?, ?, ?, ?, ?)',
-                   (game_id, next_round, name, val, datetime.now(timezone.utc).isoformat()))
+        round_scores[name] = val
+
+    # Appliquer la règle du doublement si un finisher est défini
+    doubled_player = None
+    if finisher and finisher in round_scores:
+        # Trouver le score minimum de tous les joueurs
+        min_score = min(round_scores.values())
+        finisher_score = round_scores[finisher]
+
+        # Le finisher doit avoir STRICTEMENT le plus petit score pour éviter le doublement
+        # Donc on double si : finisher_score >= min_score ET (finisher_score > min_score OU il y a égalité)
+        # Simplifié : doubler si finisher_score > min_score OU (finisher_score == min_score ET un autre joueur a aussi min_score)
+        has_strictly_smallest = finisher_score == min_score and list(round_scores.values()).count(min_score) == 1
+
+        # Si le finisher n'a PAS strictement le plus petit score ET que son score est positif
+        if not has_strictly_smallest and finisher_score > 0:
+            round_scores[finisher] = finisher_score * 2
+            doubled_player = finisher
+
+    # Insérer les rounds avec les scores (possiblement doublés)
+    for p in players:
+        name = p['name']
+        score = round_scores[name]
+        is_finisher = 1 if name == finisher else 0
+
+        db.execute('INSERT INTO rounds (game_id, round_number, player_name, score, created_at, is_finisher) VALUES (?, ?, ?, ?, ?, ?)',
+                   (game_id, next_round, name, score, datetime.now(timezone.utc).isoformat(), is_finisher))
+
     db.commit()
+
+    # Message de doublement
+    if doubled_player:
+        flash(f'⚠️ {doubled_player} a terminé mais n\'a pas le meilleur score : points doublés ! ({round_scores[doubled_player]//2} × 2 = {round_scores[doubled_player]})', 'warning')
+
+    # Vérifier si quelqu'un atteint 100 points
     totals = get_totals(game_id)
     for total in totals.values():
         if total >= 100:
@@ -308,6 +377,7 @@ def submit_round(game_id):
             db.commit()
             flash('Un joueur a atteint 100 points — la partie est terminée.')
             break
+
     return redirect(f"/skyjo/game/{game_id}")
 
 @app.route('/terminate/<int:game_id>', methods=['POST'])
@@ -318,6 +388,67 @@ def terminate(game_id):
     db.commit()
     flash('Partie terminée manuellement.')
     return redirect(f"/skyjo/game/{game_id}")
+
+@app.route('/edit_round/<int:game_id>/<int:round_number>', methods=['POST'])
+@require_auth
+def edit_round(game_id, round_number):
+    try:
+        data = request.get_json()
+        if not data or 'scores' not in data:
+            return {'success': False, 'error': 'Données manquantes'}, 400
+
+        scores = data['scores']
+        finisher = data.get('finisher', None)  # Peut être None ou une chaîne vide
+        db = get_db()
+
+        # Vérifier que le round existe
+        existing = db.execute(
+            'SELECT COUNT(*) as cnt FROM rounds WHERE game_id=? AND round_number=?',
+            (game_id, round_number)
+        ).fetchone()
+
+        if existing['cnt'] == 0:
+            return {'success': False, 'error': 'Round introuvable'}, 404
+
+        # Appliquer la règle de doublement si nécessaire
+        round_scores = scores.copy()
+        if finisher and finisher in round_scores:
+            # Trouver le score minimum de tous les joueurs
+            min_score = min(round_scores.values())
+            finisher_score = round_scores[finisher]
+
+            # Le finisher doit avoir STRICTEMENT le plus petit score pour éviter le doublement
+            has_strictly_smallest = finisher_score == min_score and list(round_scores.values()).count(min_score) == 1
+
+            # Si le finisher n'a PAS strictement le plus petit score ET que son score est positif
+            if not has_strictly_smallest and finisher_score > 0:
+                round_scores[finisher] = finisher_score * 2
+
+        # Mettre à jour les scores et le is_finisher
+        for player, original_score in scores.items():
+            # Utiliser le score doublé si applicable
+            final_score = round_scores[player]
+            is_finisher = 1 if player == finisher else 0
+
+            db.execute(
+                'UPDATE rounds SET score=?, is_finisher=? WHERE game_id=? AND round_number=? AND player_name=?',
+                (final_score, is_finisher, game_id, round_number, player)
+            )
+
+        db.commit()
+
+        # Vérifier si un joueur a maintenant atteint 100 points
+        totals = get_totals(game_id)
+        should_finish = any(total >= 100 for total in totals.values())
+
+        if should_finish:
+            db.execute('UPDATE games SET finished=1 WHERE id=?', (game_id,))
+            db.commit()
+
+        return {'success': True, 'finished': should_finish}
+
+    except Exception as e:
+        return {'success': False, 'error': str(e)}, 500
 
 @app.route('/export')
 @require_auth
@@ -421,14 +552,140 @@ def stats_detail(game_type):
     total_games = db.execute('SELECT COUNT(*) as cnt FROM games WHERE type = ?', (game_type,)).fetchone()['cnt']
     total_rounds = len(df)
 
+    # Trouver "Le précoce" - joueur qui double le plus souvent
+    most_doubled = None
+    if not df.empty:
+        # Récupérer tous les rounds où le joueur a été finisher ET a eu son score doublé
+        # Un score a été doublé si is_finisher=1 ET le score n'était pas strictement le plus petit
+        doubled_query = '''
+            SELECT r.player_name, COUNT(*) as doubled_count
+            FROM rounds r
+            INNER JOIN games g ON r.game_id = g.id
+            WHERE g.type = ? AND r.is_finisher = 1
+            GROUP BY r.player_name
+            ORDER BY doubled_count DESC
+            LIMIT 1
+        '''
+        doubled_result = db.execute(doubled_query, (game_type,)).fetchone()
+        if doubled_result and doubled_result['doubled_count'] > 0:
+            most_doubled = {
+                'player': doubled_result['player_name'],
+                'count': doubled_result['doubled_count']
+            }
+
     return render_template('stats_detail.html',
                           game_type=game_type,
                           stats=stats,
                           podium=podium,
                           worst_single=worst_single,
                           best_single=best_single,
+                          most_doubled=most_doubled,
                           total_games=total_games,
                           total_rounds=total_rounds)
+
+
+@app.route('/stats/<game_type>/player/<player_name>')
+@require_internal_access
+def player_stats(game_type, player_name):
+    """Statistiques individuelles d'un joueur pour un type de jeu"""
+    db = get_db()
+    import pandas as pd
+
+    # Récupérer tous les rounds du joueur pour ce type de jeu
+    query = '''
+        SELECT r.* FROM rounds r
+        INNER JOIN games g ON r.game_id = g.id
+        WHERE g.type = ? AND r.player_name = ?
+    '''
+    df = pd.read_sql_query(query, db, params=(game_type, player_name))
+
+    if df.empty:
+        flash(f'Aucune statistique pour {player_name} en {game_type}')
+        return redirect(f'/skyjo/stats/{game_type}')
+
+    # Statistiques de base
+    player_stats_data = {
+        'mean': float(df['score'].mean()),
+        'median': float(df['score'].median()),
+        'best': int(df['score'].min()),
+        'worst': int(df['score'].max()),
+        'rounds': int(df['score'].count())
+    }
+
+    # Meilleur score (top) et pire score (flop)
+    best_idx = df['score'].idxmin()
+    worst_idx = df['score'].idxmax()
+    top_round = df.loc[best_idx]
+    flop_round = df.loc[worst_idx]
+
+    top = {
+        'score': int(top_round['score']),
+        'round_number': int(top_round['round_number']),
+        'game_id': int(top_round['game_id'])
+    }
+
+    flop = {
+        'score': int(flop_round['score']),
+        'round_number': int(flop_round['round_number']),
+        'game_id': int(flop_round['game_id'])
+    }
+
+    # Trouver les 3 joueurs les plus fréquents (co-joueurs)
+    # Récupérer toutes les parties où le joueur a participé
+    games_query = '''
+        SELECT DISTINCT game_id FROM rounds
+        WHERE player_name = ?
+        AND game_id IN (SELECT id FROM games WHERE type = ?)
+    '''
+    games_result = db.execute(games_query, (player_name, game_type)).fetchall()
+    game_ids = [row['game_id'] for row in games_result]
+
+    frequent_players = []
+    if game_ids:
+        # Compter les co-joueurs (excluant le joueur lui-même)
+        placeholders = ','.join('?' * len(game_ids))
+        coplayers_query = f'''
+            SELECT player_name, COUNT(DISTINCT game_id) as game_count
+            FROM rounds
+            WHERE game_id IN ({placeholders})
+            AND player_name != ?
+            GROUP BY player_name
+            ORDER BY game_count DESC
+            LIMIT 3
+        '''
+        params = game_ids + [player_name]
+        coplayers_result = db.execute(coplayers_query, params).fetchall()
+        frequent_players = [{'player': row['player_name'], 'games': row['game_count']} for row in coplayers_result]
+
+    # Calculer le pourcentage de "préciosité" (finisher)
+    finisher_count = int(df[df['is_finisher'] == 1]['is_finisher'].count())
+    total_rounds = int(df['score'].count())
+    precocity_percentage = (finisher_count / total_rounds * 100) if total_rounds > 0 else 0
+
+    # Trouver la date de la première partie du joueur
+    first_game_date = None
+    if game_ids:
+        first_game_query = '''
+            SELECT created_at FROM games
+            WHERE id IN ({})
+            ORDER BY created_at ASC
+            LIMIT 1
+        '''.format(','.join('?' * len(game_ids)))
+        first_game_result = db.execute(first_game_query, game_ids).fetchone()
+        if first_game_result:
+            first_game_date = first_game_result['created_at']
+
+    return render_template('player_stats.html',
+                          game_type=game_type,
+                          player_name=player_name,
+                          stats=player_stats_data,
+                          top=top,
+                          flop=flop,
+                          frequent_players=frequent_players,
+                          precocity_percentage=precocity_percentage,
+                          finisher_count=finisher_count,
+                          total_rounds=total_rounds,
+                          first_game_date=first_game_date)
 
 
 @app.route('/images/<path:filename>')

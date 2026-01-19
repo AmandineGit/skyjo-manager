@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stats {{ player_name }} — Skyjo</title>
+  <link rel="stylesheet" href="/skyjo/static/style.css">
+</head>
+<body>
+  <div class="page-content">
+  <div style="margin-bottom: 20px;">
+    <a href="/skyjo/stats/{{ game_type }}" class="button button-secondary">← Retour aux stats {{ game_type }}</a>
+  </div>
+  <h1>📊 {{ player_name }}</h1>
+  <p style="font-size: 1rem; color: #666; margin-bottom: 25px;">
+    {{ game_type }} · {{ total_rounds }} round{{ 's' if total_rounds > 1 else '' }} joué{{ 's' if total_rounds > 1 else '' }}
+  </p>
+
+  <!-- Tuiles Metro style -->
+  <section class="metro-tiles">
+    <!-- Tuile Moyenne -->
+    <div class="metro-tile tile-player-mean">
+      <div class="tile-header">
+        <span class="tile-icon">📊</span>
+        <span class="tile-title">Moyenne</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ '%.2f'|format(stats.mean) }}</div>
+        <div class="tile-main-label">points par round</div>
+        <div class="tile-secondary-value">Médiane: {{ '%.2f'|format(stats.median) }}</div>
+      </div>
+    </div>
+
+    <!-- Tuile Top (meilleur score) -->
+    <div class="metro-tile tile-player-top">
+      <div class="tile-header">
+        <span class="tile-icon">✨</span>
+        <span class="tile-title">Top</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ top.score }}</div>
+        <div class="tile-main-label">points</div>
+        <div class="tile-details">Round #{{ top.round_number }} · Partie #{{ top.game_id }}</div>
+      </div>
+    </div>
+
+    <!-- Tuile Flop (pire score) -->
+    <div class="metro-tile tile-player-flop">
+      <div class="tile-header">
+        <span class="tile-icon">💀</span>
+        <span class="tile-title">Flop</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ flop.score }}</div>
+        <div class="tile-main-label">points</div>
+        <div class="tile-details">Round #{{ flop.round_number }} · Partie #{{ flop.game_id }}</div>
+      </div>
+    </div>
+
+    <!-- Tuile Préciosité -->
+    <div class="metro-tile tile-player-precocity">
+      <div class="tile-header">
+        <span class="tile-icon">⚡</span>
+        <span class="tile-title">Préciosité</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ '%.1f'|format(precocity_percentage) }}%</div>
+        <div class="tile-main-label">de finisher</div>
+        <div class="tile-details">{{ finisher_count }} fois sur {{ total_rounds }} rounds</div>
+      </div>
+    </div>
+
+    <!-- Tuile Rounds joués -->
+    <div class="metro-tile tile-player-rounds">
+      <div class="tile-header">
+        <span class="tile-icon">🎮</span>
+        <span class="tile-title">Rounds joués</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ total_rounds }}</div>
+        <div class="tile-main-label">round{{ 's' if total_rounds > 1 else '' }}</div>
+        <div class="tile-secondary-value">{{ game_type }}</div>
+      </div>
+    </div>
+
+    <!-- Tuile Ancienneté -->
+    {% if first_game_date %}
+    <div class="metro-tile tile-player-seniority">
+      <div class="tile-header">
+        <span class="tile-icon">📅</span>
+        <span class="tile-title">Ancienneté</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value" style="font-size: 1.5rem;">{{ first_game_date|format_date_fr }}</div>
+        <div class="tile-main-label">première partie</div>
+        <div class="tile-secondary-value">{{ game_type }}</div>
+      </div>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- Co-joueurs fréquents -->
+  {% if frequent_players %}
+  <section class="player-coplayers-section">
+    <h2>👥 Co-joueurs fréquents</h2>
+    <div class="coplayers-grid">
+      {% for cp in frequent_players %}
+      <div class="coplayer-card">
+        <div class="coplayer-name">{{ cp.player }}</div>
+        <div class="coplayer-count">{{ cp.games }} partie{{ 's' if cp.games > 1 else '' }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <div style="margin-top: 30px;">
+    <a href="/skyjo/stats/{{ game_type }}" class="button">← Retour aux stats {{ game_type }}</a>
+  </div>
+  <a href="/skyjo/stats" class="back-button">← Menu stats</a>
+  </div>
+</body>
+</html>

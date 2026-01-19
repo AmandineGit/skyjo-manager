@@ -1054,3 +1054,356 @@ body {
     font-size: 3rem;
   }
 }
+
+/* Styles pour l'édition de rounds */
+.edit-col {
+  width: 100px;
+  text-align: center;
+}
+
+.edit-round-btn, .save-round-btn, .cancel-round-btn {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin: 0 2px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.edit-round-btn:hover {
+  transform: scale(1.2);
+}
+
+.save-round-btn {
+  color: #43e97b;
+}
+
+.save-round-btn:hover {
+  transform: scale(1.2);
+}
+
+.cancel-round-btn {
+  color: #e74c3c;
+}
+
+.cancel-round-btn:hover {
+  transform: scale(1.2);
+}
+
+.score-edit-input {
+  border: 2px solid #4facfe;
+  border-radius: 6px;
+  padding: 6px 8px;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 600;
+  width: 55px;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.score-edit-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+  transform: scale(1.05);
+}
+
+.finisher-edit-radio {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+/* Colonne finisher */
+.finisher-col {
+  text-align: center;
+  width: 80px;
+}
+
+.finisher-radio {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.finisher-edit-select {
+  border: 1px solid #4facfe;
+  border-radius: 4px;
+  padding: 4px 6px;
+  text-align: center;
+  font-size: 0.9rem;
+  background: white;
+  cursor: pointer;
+}
+
+.finisher-edit-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+.finisher-display {
+  font-weight: 600;
+  color: #667eea;
+}
+
+/* Score wrapper pour aligner score et badge */
+.score-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Score edit wrapper pour aligner input et radio */
+.score-edit-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 0;
+}
+
+/* Badge finisher (pastille) */
+.finisher-badge {
+  font-size: 0.75rem;
+  line-height: 1;
+  opacity: 0.8;
+}
+
+/* Score doublé en gras */
+.score-doubled {
+  font-weight: 700 !important;
+  color: #e74c3c;
+}
+
+/* Modale */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.5);
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 15px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  position: relative;
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-close {
+  position: absolute;
+  right: 15px;
+  top: 15px;
+  font-size: 28px;
+  font-weight: bold;
+  color: #999;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.modal-close:hover {
+  color: #333;
+}
+
+/* Responsive pour mobile */
+@media (max-width: 768px) {
+  .edit-col {
+    width: auto;
+  }
+
+  .edit-round-btn, .save-round-btn, .cancel-round-btn {
+    font-size: 1.5rem;
+    padding: 8px 10px;
+  }
+
+  .score-edit-input {
+    width: 50px !important;
+    font-size: 0.95rem;
+    padding: 5px 6px;
+  }
+
+  .finisher-col {
+    font-size: 0.8rem;
+  }
+
+  .finisher-radio {
+    width: 18px;
+    height: 18px;
+  }
+
+  .finisher-edit-radio {
+    width: 18px;
+    height: 18px;
+  }
+
+  .score-edit-wrapper {
+    gap: 3px;
+    padding: 3px 0;
+  }
+
+  .finisher-edit-select {
+    font-size: 0.8rem;
+    padding: 2px 4px;
+  }
+}
+
+/* Styles pour la tuile "Le précoce" */
+.tile-precoce {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+/* Lien joueur cliquable dans les stats */
+.player-link {
+  color: #2d3748;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.player-link:hover {
+  color: #667eea;
+  text-decoration: underline;
+}
+
+/* Styles pour la page de statistiques individuelles */
+.tile-player-mean {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.tile-player-top {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.tile-player-flop {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.tile-player-precocity {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+.tile-player-rounds {
+  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+}
+
+.tile-player-seniority {
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+}
+
+/* Section co-joueurs */
+.player-coplayers-section {
+  margin: 40px 0;
+}
+
+.player-coplayers-section h2 {
+  margin-bottom: 20px;
+  color: #2d3748;
+  font-size: 1.5rem;
+}
+
+.coplayers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.coplayer-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.coplayer-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+}
+
+.coplayer-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #2d3748;
+  margin-bottom: 8px;
+}
+
+.coplayer-count {
+  font-size: 0.95rem;
+  color: #718096;
+}
+
+/* Section récapitulatif */
+.player-summary-section {
+  margin: 40px 0;
+}
+
+.player-summary-section h2 {
+  margin-bottom: 20px;
+  color: #2d3748;
+  font-size: 1.5rem;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+}
+
+.summary-item {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.summary-label {
+  font-size: 0.85rem;
+  color: #718096;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.summary-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #2d3748;
+}
+
+@media (max-width: 768px) {
+  .coplayers-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

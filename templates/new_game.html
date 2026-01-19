@@ -64,6 +64,15 @@
     var changeTypeBtn = document.getElementById('change-type-btn');
     var rulesBtn = document.getElementById('rules-button');
 
+    // Pré-sélection du type de jeu si fourni par l'URL
+    var defaultType = {{ default_type|tojson if default_type else 'null' }};
+    if (defaultType) {
+      gameTypeInput.value = defaultType;
+      selectedGameTypeSpan.textContent = defaultType;
+      gameTypeSelection.style.display = 'none';
+      gameForm.style.display = 'block';
+    }
+
     // Gestion des tuiles de sélection
     var gameTypeCards = document.querySelectorAll('.game-type-card');
     gameTypeCards.forEach(function(card) {
@@ -78,12 +87,15 @@
       });
     });
 
-    // Changer de type
-    changeTypeBtn.addEventListener('click', function() {
+    // Fonction pour revenir à la sélection du type
+    function showTypeSelection() {
       gameForm.style.display = 'none';
       gameTypeSelection.style.display = 'grid';
       gameTypeInput.value = '';
-    });
+    }
+
+    // Changer de type
+    changeTypeBtn.addEventListener('click', showTypeSelection);
 
     // Bouton règles
     rulesBtn.addEventListener('click', function() {
@@ -117,9 +129,22 @@
       }
       document.querySelector('[name=players]').value = names.join(',');
     });
+
+    // Bouton retour global
+    var backButton = document.querySelector('.back-button');
+    backButton.addEventListener('click', function(e) {
+      e.preventDefault();
+      // Si le formulaire est affiché, revenir à la sélection du type
+      if (gameForm.style.display === 'block') {
+        showTypeSelection();
+      } else {
+        // Sinon, retour à l'accueil
+        window.location.href = '/skyjo/';
+      }
+    });
   });
   </script>
-  <button onclick="history.back()" class="back-button">← Retour</button>
+  <button class="back-button">← Retour</button>
   </div>
 </body>
 </html>

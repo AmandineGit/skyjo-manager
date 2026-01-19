@@ -49,6 +49,9 @@
   {% endif %}
   {% if game['finished'] %}
     <p style="text-align: center; color: #e74c3c; font-weight: 600; font-size: 1.1rem; margin: 30px 0;">🏁 La partie est terminée</p>
+    <div style="text-align: center; margin: 20px 0;">
+      <a href="/skyjo/new?type={{ game['type'] }}" class="button" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: inline-block; text-decoration: none;">➕ Nouvelle partie {{ game['type'] }}</a>
+    </div>
   {% else %}
     <form method="post" id="submit-round-form" action="/skyjo/submit_round/{{ game['id'] }}">
     <div class="round-form-wrapper">
@@ -58,6 +61,7 @@
             <th>Joueur</th>
             <th class="hide-mobile">Total actuel</th>
             <th>Score manche</th>
+            <th class="finisher-col">Finisher</th>
           </tr>
         </thead>
         <tbody>
@@ -65,12 +69,17 @@
           <tr>
             <td><strong>{{ p }}</strong></td>
             <td class="hide-mobile"><span class="current-total" data-player="{{ p }}">{{ totals.get(p, 0) }}</span></td>
-            <td><input class="score-input" name="score_{{ p }}" type="text" inputmode="numeric" pattern="^-?\d*$" placeholder="0" value="0" data-player="{{ p }}"></td>
+            <td><input class="score-input" name="score_{{ p }}" type="text" inputmode="numeric" pattern="^-?\d*$" placeholder="0" value="0" data-player="{{ p }}" onfocus="if(this.value=='0') this.value='';" onblur="if(this.value=='') this.value='0';"></td>
+            <td class="finisher-col"><input type="radio" name="finisher" value="{{ p }}" class="finisher-radio" title="Ce joueur a terminé la manche en retournant toutes ses cartes"></td>
           </tr>
         {% endfor %}
         </tbody>
       </table>
     </div>
+
+    <button type="button" class="button button-info" onclick="showFinisherInfo()" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); margin: 10px 0;">
+      💡 Finisher
+    </button>
 
     <p id="finish-warning" style="display:none;color:#e74c3c;font-weight:bold;margin: 15px 0;">⚠️ Attention : un joueur atteindra 100 points ou plus — la partie sera terminée automatiquement.</p>
 
@@ -95,27 +104,74 @@
           <th class="player-col">{{ p }}</th>
         {% endfor %}
         <th class="ts-col">Date & heure</th>
+        <th class="edit-col"></th>
       </tr>
     </thead>
     <tbody>
     {% for r in rounds_matrix %}
-      <tr>
+      <tr data-round="{{ r['round'] }}" data-finisher="{{ r['finisher'] if r['finisher'] else '' }}">
         <td class="round-col" data-label="Round">{{ r['round'] }}</td>
         {% for p in players %}
-          <td class="score-cell" data-label="{{ p }}">{{ r['scores'].get(p, '') }}</td>
+          <td class="score-cell" data-label="{{ p }}" data-player="{{ p }}">
+            <div class="score-wrapper">
+              <span class="score-display{% if r['finisher'] == p and r.get('was_doubled', False) %} score-doubled{% endif %}">{{ r['scores'].get(p, '') }}</span>
+              {% if r['finisher'] == p %}
+                <span class="finisher-badge" title="A terminé la manche">🏁</span>
+              {% endif %}
+            </div>
+            <div class="score-edit-wrapper" style="display:none;">
+              <input type="text" class="score-edit-input" inputmode="numeric" pattern="^-?\d*$" data-player="{{ p }}" value="{{ r['scores'].get(p, '') }}" onfocus="if(this.value=='0') this.value='';" onblur="if(this.value=='') this.value='0';">
+              <input type="radio" name="finisher_edit_{{ r['round'] }}" value="{{ p }}" class="finisher-edit-radio" {% if r['finisher'] == p %}checked{% endif %} title="Ce joueur a terminé la manche">
+            </div>
+          </td>
         {% endfor %}
         <td class="ts-col" data-label="Date">{% if r['timestamp'] %}{{ r['timestamp']|format_ts }}{% endif %}</td>
+        <td class="edit-col">
+          <button class="edit-round-btn" onclick="editRound({{ game['id'] }}, {{ r['round'] }}, this)" title="Modifier les scores">✏️</button>
+          <button class="save-round-btn" onclick="saveRound({{ game['id'] }}, {{ r['round'] }}, this)" style="display:none;" title="Enregistrer">✓</button>
+          <button class="cancel-round-btn" onclick="cancelEditRound(this)" style="display:none;" title="Annuler">✗</button>
+        </td>
       </tr>
     {% endfor %}
     </tbody>
   </table>
   </div>
 
-  <p><a href="/skyjo/export">Exporter</a></p>
-  <button onclick="history.back()" class="back-button">← Retour</button>
+  <a href="/skyjo/" class="back-button">← Retour à l'accueil</a>
+</div>
+
+<!-- Modale d'information Finisher -->
+<div id="finisher-modal" class="modal" onclick="closeFinisherInfo(event)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <span class="modal-close" onclick="closeFinisherInfo()">&times;</span>
+    <h2 style="margin-top: 0;">💡 Finisher - Règle Skyjo</h2>
+    <p style="line-height: 1.6;">
+      Cochez "Finisher" pour le joueur qui a retourné toutes ses cartes en premier.
+    </p>
+    <p style="line-height: 1.6; margin-top: 15px;">
+      <strong>⚠️ Règle du doublement :</strong><br>
+      Si ce joueur n'a pas <strong>strictement</strong> le plus petit score, ses points seront doublés (règle Skyjo).
+    </p>
+    <p style="line-height: 1.6; margin-top: 15px; font-size: 0.9rem; color: #666;">
+      <em>Note : Cette règle ne s'applique qu'aux scores positifs.</em>
+    </p>
+    <div style="text-align: center; margin-top: 20px;">
+      <button class="button" onclick="closeFinisherInfo()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">Compris !</button>
+    </div>
+  </div>
 </div>
 
 <script>
+// Fonction pour afficher la modale d'information Finisher
+function showFinisherInfo() {
+  document.getElementById('finisher-modal').style.display = 'flex';
+}
+
+// Fonction pour fermer la modale
+function closeFinisherInfo(event) {
+  document.getElementById('finisher-modal').style.display = 'none';
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   // Récupère les totaux actuels
   const currentTotals = {};
@@ -132,6 +188,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const inputs = Array.from(form.querySelectorAll('.score-input'));
     const updates = [];
+    const roundScores = {};
     let willFinish = false;
 
     for (const input of inputs) {
@@ -142,14 +199,51 @@ document.addEventListener('DOMContentLoaded', function () {
       const delta = parseInt(val, 10);
       const newTotal = (currentTotals[player] || 0) + delta;
       updates.push({ player, old: currentTotals[player] || 0, delta, newTotal });
+      roundScores[player] = delta;
       if (newTotal >= 100) willFinish = true;
+    }
+
+    // Récupérer le finisher
+    const finisherRadio = form.querySelector('.finisher-radio:checked');
+    const finisher = finisherRadio ? finisherRadio.value : null;
+
+    // Calculer le doublement si applicable
+    let doubledScore = null;
+    let originalScore = null;
+    if (finisher && finisher in roundScores) {
+      const minScore = Math.min(...Object.values(roundScores));
+      const finisherScore = roundScores[finisher];
+
+      // Le finisher a strictement le plus petit score si son score == min ET qu'il est le seul
+      const hasStrictlySmallest = finisherScore === minScore && Object.values(roundScores).filter(s => s === minScore).length === 1;
+
+      // Doubler si pas strictement le plus petit ET score positif
+      if (!hasStrictlySmallest && finisherScore > 0) {
+        originalScore = finisherScore;
+        doubledScore = finisherScore * 2;
+      }
     }
 
     let message = 'Confirmez-vous la validation du round ?\n\n';
     updates.forEach(function (u) {
-      message += u.player + ': ' + u.old + ' + ' + u.delta + ' → ' + u.newTotal + ' pts\n';
+      let scoreDisplay = u.delta;
+      if (u.player === finisher && doubledScore !== null) {
+        scoreDisplay = `${originalScore} → ${doubledScore} (doublé)`;
+        // Recalculer le newTotal avec le score doublé
+        const adjustedTotal = u.old + doubledScore;
+        message += u.player + ': ' + u.old + ' + ' + scoreDisplay + ' → ' + adjustedTotal + ' pts\n';
+        if (adjustedTotal >= 100) willFinish = true;
+      } else {
+        message += u.player + ': ' + u.old + ' + ' + u.delta + ' → ' + u.newTotal + ' pts\n';
+      }
     });
-    if (willFinish) message += '\nAttention : au moins un joueur atteindra 100 pts. La partie sera marquée comme terminée.';
+    if (finisher) {
+      message += '\nFinisher: ' + finisher;
+      if (doubledScore === null && finisher in roundScores) {
+        message += ' (pas de doublement car strictement le meilleur score)';
+      }
+    }
+    if (willFinish) message += '\n\nAttention : au moins un joueur atteindra 100 pts. La partie sera marquée comme terminée.';
 
     if (confirm(message)) {
       // Submit form après confirmation
@@ -157,6 +251,134 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 });
+
+// Fonction pour éditer un round
+function editRound(gameId, roundNum, btn) {
+  const row = btn.closest('tr');
+
+  // Cacher les score-wrapper et afficher les score-edit-wrapper
+  row.querySelectorAll('.score-wrapper').forEach(wrapper => wrapper.style.display = 'none');
+  row.querySelectorAll('.score-edit-wrapper').forEach(wrapper => wrapper.style.display = 'flex');
+
+  // Changer les boutons
+  row.querySelector('.edit-round-btn').style.display = 'none';
+  row.querySelector('.save-round-btn').style.display = 'inline-block';
+  row.querySelector('.cancel-round-btn').style.display = 'inline-block';
+}
+
+// Fonction pour annuler l'édition
+function cancelEditRound(btn) {
+  const row = btn.closest('tr');
+  const originalFinisher = row.getAttribute('data-finisher') || '';
+
+  // Restaurer les valeurs originales des scores
+  row.querySelectorAll('.score-edit-input').forEach(input => {
+    const originalValue = input.defaultValue;
+    input.value = originalValue;
+  });
+
+  // Restaurer le finisher radio
+  row.querySelectorAll('.finisher-edit-radio').forEach(radio => {
+    const player = radio.value;
+    radio.checked = (player === originalFinisher);
+  });
+
+  // Cacher les edit-wrapper et réafficher les score-wrapper
+  row.querySelectorAll('.score-edit-wrapper').forEach(wrapper => wrapper.style.display = 'none');
+  row.querySelectorAll('.score-wrapper').forEach(wrapper => wrapper.style.display = 'flex');
+
+  // Remettre les boutons
+  row.querySelector('.edit-round-btn').style.display = 'inline-block';
+  row.querySelector('.save-round-btn').style.display = 'none';
+  row.querySelector('.cancel-round-btn').style.display = 'none';
+}
+
+// Fonction pour sauvegarder les modifications
+function saveRound(gameId, roundNum, btn) {
+  const row = btn.closest('tr');
+  const scores = {};
+
+  // Récupérer les nouveaux scores
+  row.querySelectorAll('.score-edit-input').forEach(input => {
+    const player = input.getAttribute('data-player');
+    const value = input.value.trim();
+    if (value === '' || value === '0') {
+      // Accepter 0 comme valeur valide
+      scores[player] = 0;
+    } else if (!/^-?\d+$/.test(value)) {
+      alert('Veuillez entrer des scores valides (entiers positifs ou négatifs).');
+      return;
+    } else {
+      scores[player] = parseInt(value, 10);
+    }
+  });
+
+  if (Object.keys(scores).length === 0) return;
+
+  // Récupérer le finisher via les radio buttons
+  const finisherRadio = row.querySelector('.finisher-edit-radio:checked');
+  const finisher = finisherRadio ? finisherRadio.value : null;
+
+  // Calculer le doublement si applicable
+  let doubledScore = null;
+  let originalScore = null;
+  if (finisher && finisher in scores) {
+    const minScore = Math.min(...Object.values(scores));
+    const finisherScore = scores[finisher];
+
+    // Le finisher a strictement le plus petit score si son score == min ET qu'il est le seul
+    const hasStrictlySmallest = finisherScore === minScore && Object.values(scores).filter(s => s === minScore).length === 1;
+
+    // Doubler si pas strictement le plus petit ET score positif
+    if (!hasStrictlySmallest && finisherScore > 0) {
+      originalScore = finisherScore;
+      doubledScore = finisherScore * 2;
+    }
+  }
+
+  // Confirmation
+  let message = `Modifier les scores du round ${roundNum} ?\n\n`;
+  for (const [player, score] of Object.entries(scores)) {
+    if (player === finisher && doubledScore !== null) {
+      message += `${player}: ${originalScore} → ${doubledScore} (doublé)\n`;
+    } else {
+      message += `${player}: ${score}\n`;
+    }
+  }
+  if (finisher) {
+    message += `\nFinisher: ${finisher}`;
+    if (doubledScore === null && finisher in scores) {
+      message += ' (pas de doublement car strictement le meilleur score)';
+    }
+  }
+
+  if (!confirm(message)) return;
+
+  // Envoyer la requête AJAX
+  fetch(`/skyjo/edit_round/${gameId}/${roundNum}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      scores: scores,
+      finisher: finisher
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Recharger la page pour mettre à jour les scores (y compris le doublement) et les totaux
+      location.reload();
+    } else {
+      alert('Erreur lors de la modification: ' + (data.error || 'Erreur inconnue'));
+    }
+  })
+  .catch(error => {
+    alert('Erreur de communication avec le serveur');
+    console.error(error);
+  });
+}
 </script>
 </body>
 </html>
