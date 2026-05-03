@@ -49,7 +49,7 @@ Application web de gestion de parties de Skyjo avec suivi des scores, statistiqu
 - **Comptes utilisateurs** avec email/mot de passe
 - Inscription avec détection automatique de joueurs existants
 - Profil utilisateur avec modification du mot de passe
-- Réinitialisation de mot de passe par email (lien affiché en mode dev)
+- Mot de passe oublié : contacter l'administrateur par email
 - Traçage de la dernière connexion
 
 ### Panneau d'administration
@@ -303,6 +303,13 @@ sudo journalctl -u gunicorn-skyjo -f
 ```
 
 ## Changelog
+
+### v2.2.0 (2026-05-03)
+- **Permissions d'édition des scores** : partie terminée → admin uniquement ; partie en cours → tout utilisateur connecté
+- **Suppression de partie** : bouton admin uniquement sur la page de partie, avec confirmation
+- **Partie vide** : terminer une partie sans rounds la supprime au lieu de la marquer terminée
+- **Groupes** : la liste des parties affiche "Partie #X — date" sans l'heure
+- **Mot de passe oublié** : remplacé par un message invitant à contacter l'administrateur
 
 ### v2.1.0 (2026-05-03)
 - **Nom de joueur unifié** : suppression de `display_name`, `player_name` sert à la fois d'identifiant et de nom dans les parties
