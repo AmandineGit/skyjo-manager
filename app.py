@@ -1208,7 +1208,8 @@ def game_view(game_id):
         can_edit = True
 
     return render_template('game.html', game=game, players=player_names, totals=totals,
-                           rounds_matrix=rounds_matrix, can_edit=can_edit)
+                           rounds_matrix=rounds_matrix, can_edit=can_edit,
+                           is_admin=is_admin(user))
 
 @app.route('/submit_round/<int:game_id>', methods=['POST'])
 @require_auth
@@ -1298,6 +1299,21 @@ def terminate(game_id):
     db.commit()
     flash('Partie terminée manuellement.')
     return redirect(f"/skyjo/game/{game_id}")
+
+@app.route('/delete_game/<int:game_id>', methods=['POST'])
+@require_auth
+def delete_game(game_id):
+    user = get_current_user()
+    if not is_admin(user):
+        flash('Action réservée à l\'admin')
+        return redirect(f"/skyjo/game/{game_id}")
+    db = get_db()
+    db.execute('DELETE FROM rounds WHERE game_id=?', (game_id,))
+    db.execute('DELETE FROM players WHERE game_id=?', (game_id,))
+    db.execute('DELETE FROM games WHERE id=?', (game_id,))
+    db.commit()
+    flash('Partie supprimée.')
+    return redirect('/skyjo/')
 
 @app.route('/edit_round/<int:game_id>/<int:round_number>', methods=['POST'])
 @require_auth

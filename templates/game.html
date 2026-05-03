@@ -143,6 +143,12 @@
   {% endif %}
 
   <a href="/skyjo/" class="back-button">← Retour à l'accueil</a>
+
+  {% if is_admin %}
+  <form method="post" action="/skyjo/delete_game/{{ game['id'] }}" onsubmit="return confirm('Supprimer définitivement cette partie ?');" style="margin-top: 20px; text-align: center;">
+    <button type="submit" class="button button-danger">🗑 Supprimer la partie</button>
+  </form>
+  {% endif %}
 </div>
 
 <!-- Modale d'information Finisher -->
