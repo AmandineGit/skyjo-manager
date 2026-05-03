@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mon profil — Skyjo</title>
+  <link rel="stylesheet" href="/skyjo/static/style.css">
+</head>
+<body>
+  <div class="page-content">
+    <h1>Mon profil</h1>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="flash-message">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="profile-section">
+      <h2>Informations</h2>
+      <form method="post" class="profile-form">
+        <input type="hidden" name="action" value="update_profile">
+
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" class="form-input" value="{{ user.email }}" disabled>
+          <small>L'email ne peut pas être modifié</small>
+        </div>
+
+        <div class="form-group">
+          <label for="display_name">Nom d'affichage</label>
+          <input
+            type="text"
+            id="display_name"
+            name="display_name"
+            class="form-input"
+            value="{{ user.display_name or '' }}"
+            placeholder="Comment vous appeler ?"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="player_name">Nom de joueur associé</label>
+          <input
+            type="text"
+            id="player_name"
+            name="player_name"
+            class="form-input"
+            value="{{ user.player_name or '' }}"
+            placeholder="Votre nom dans les parties (optionnel)"
+          >
+          <small>Si vous jouez souvent, associez votre nom pour voir vos stats</small>
+        </div>
+
+        <button type="submit" class="button button-submit">Enregistrer</button>
+      </form>
+    </div>
+
+    <div class="profile-section">
+      <h2>Changer le mot de passe</h2>
+      <form method="post" class="profile-form">
+        <input type="hidden" name="action" value="change_password">
+
+        <div class="form-group">
+          <label for="current_password">Mot de passe actuel</label>
+          <input
+            type="password"
+            id="current_password"
+            name="current_password"
+            class="form-input"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="new_password">Nouveau mot de passe</label>
+          <input
+            type="password"
+            id="new_password"
+            name="new_password"
+            class="form-input"
+            required
+            minlength="6"
+            placeholder="6 caractères minimum"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="new_password_confirm">Confirmer</label>
+          <input
+            type="password"
+            id="new_password_confirm"
+            name="new_password_confirm"
+            class="form-input"
+            required
+          >
+        </div>
+
+        <button type="submit" class="button button-submit">Changer le mot de passe</button>
+      </form>
+    </div>
+
+    <div class="profile-actions">
+      <a href="/skyjo/" class="button button-secondary">← Retour à l'accueil</a>
+      <a href="/skyjo/logout" class="button button-danger">Déconnexion</a>
+    </div>
+  </div>
+</body>
+</html>

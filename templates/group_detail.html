@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ group.name }} — Skyjo</title>
+  <link rel="stylesheet" href="/skyjo/static/style.css">
+</head>
+<body>
+  <div class="page-content">
+    <h1>{{ group.name }}</h1>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="flash-message">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="group-sections">
+      <!-- Joueurs du groupe -->
+      <div class="group-section">
+        <h2>Joueurs ({{ members|length }})</h2>
+        <div class="members-list">
+          {% for member in members %}
+          <div class="member-item">
+            <span class="member-name">{{ member.player_name }}</span>
+            {% if user_role == 'owner' %}
+            <form method="post" action="/skyjo/groups/{{ group.id }}/edit" class="inline-form">
+              <input type="hidden" name="action" value="remove_member">
+              <input type="hidden" name="member_id" value="{{ member.id }}">
+              <button type="submit" class="button-small button-danger" title="Retirer">×</button>
+            </form>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+
+        {% if user_role == 'owner' %}
+        <form method="post" action="/skyjo/groups/{{ group.id }}/edit" class="add-member-form">
+          <input type="hidden" name="action" value="add_member">
+          <input type="text" name="member_name" placeholder="Nom du joueur" class="form-input-small" required>
+          <button type="submit" class="button button-submit">+ Ajouter</button>
+        </form>
+        {% endif %}
+      </div>
+
+      <!-- Utilisateurs ayant accès -->
+      <div class="group-section">
+        <h2>Gestionnaires</h2>
+        <div class="users-list">
+          {% for u in users %}
+          <div class="user-item">
+            <span class="user-name">{{ u.display_name or u.email }}</span>
+            <span class="user-role {{ u.role }}">{{ 'Propriétaire' if u.role == 'owner' else 'Membre' }}</span>
+          </div>
+          {% endfor %}
+        </div>
+
+        {% if user_role == 'owner' %}
+        <form method="post" action="/skyjo/groups/{{ group.id }}/edit" class="invite-form">
+          <input type="hidden" name="action" value="invite_user">
+          <input type="email" name="email" placeholder="Email de l'utilisateur" class="form-input-small" required>
+          <button type="submit" class="button button-submit">Inviter</button>
+        </form>
+        {% endif %}
+      </div>
+
+      <!-- Dernières parties -->
+      <div class="group-section">
+        <h2>Dernières parties</h2>
+        {% if games %}
+        <div class="games-list">
+          {% for game in games %}
+          <a href="/skyjo/game/{{ game.id }}" class="game-item">
+            <span class="game-type">{{ game.type }}</span>
+            <span class="game-players">{{ game.player_names }}</span>
+            <span class="game-status {{ 'finished' if game.finished else 'ongoing' }}">
+              {{ 'Terminée' if game.finished else 'En cours' }}
+            </span>
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-text">Aucune partie pour le moment</p>
+        {% endif %}
+      </div>
+
+      <!-- Actions propriétaire -->
+      {% if user_role == 'owner' %}
+      <div class="group-section">
+        <h2>Paramètres</h2>
+        <form method="post" action="/skyjo/groups/{{ group.id }}/edit" class="rename-form">
+          <input type="hidden" name="action" value="rename">
+          <label>Renommer le groupe</label>
+          <div class="form-row">
+            <input type="text" name="name" value="{{ group.name }}" class="form-input" required>
+            <button type="submit" class="button">Renommer</button>
+          </div>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="page-actions">
+      <a href="/skyjo/new?group={{ group.id }}" class="button button-submit">+ Nouvelle partie</a>
+      <a href="/skyjo/stats?group={{ group.id }}" class="button">Statistiques</a>
+      <a href="/skyjo/groups" class="button button-secondary">← Mes groupes</a>
+    </div>
+  </div>
+</body>
+</html>

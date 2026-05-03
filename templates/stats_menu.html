@@ -8,12 +8,34 @@
 </head>
 <body>
   <div class="page-content">
-  <h1>📊 Statistiques</h1>
-  <p style="font-size: 1.1rem; color: #666; margin-bottom: 30px;">Choisissez le type de jeu pour voir les statistiques détaillées</p>
+  <h1>Statistiques</h1>
+
+  <!-- Sélecteur de groupe -->
+  <div class="stats-filter">
+    <label for="group-select">Filtrer par groupe :</label>
+    <select id="group-select" class="group-select" onchange="filterByGroup(this.value)">
+      <option value="">Tous mes groupes</option>
+      {% for group in user_groups %}
+      <option value="{{ group.id }}" {% if group_id and group_id|string == group.id|string %}selected{% endif %}>
+        {{ group.name }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  {% if selected_group %}
+  <p style="font-size: 1.1rem; color: #667eea; margin-bottom: 20px;">
+    Statistiques du groupe <strong>{{ selected_group.name }}</strong>
+  </p>
+  {% else %}
+  <p style="font-size: 1.1rem; color: #666; margin-bottom: 20px;">
+    Statistiques globales de tous vos groupes
+  </p>
+  {% endif %}
 
   <div class="stats-menu-grid">
     {% for game_type in game_types %}
-    <a href="/skyjo/stats/{{ game_type }}" class="stats-card">
+    <a href="/skyjo/stats/{{ game_type }}{% if group_id %}?group={{ group_id }}{% endif %}" class="stats-card">
       <div class="stats-card-icon">
         {% if game_type == 'Skyjo' %}
           🎯
@@ -31,10 +53,24 @@
   </div>
 
   {% if not game_types %}
-  <p style="text-align: center; color: #999; margin-top: 40px;">Aucune partie jouée pour le moment</p>
+  <div class="empty-state">
+    <div class="empty-icon">📊</div>
+    <h2>Aucune statistique</h2>
+    <p>{% if selected_group %}Aucune partie jouée dans ce groupe{% else %}Aucune partie jouée pour le moment{% endif %}</p>
+  </div>
   {% endif %}
 
   <a href="/skyjo/" class="back-button">← Retour à l'accueil</a>
   </div>
+
+  <script>
+  function filterByGroup(groupId) {
+    if (groupId) {
+      window.location.href = '/skyjo/stats?group=' + groupId;
+    } else {
+      window.location.href = '/skyjo/stats';
+    }
+  }
+  </script>
 </body>
 </html>

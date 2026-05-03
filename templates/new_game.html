@@ -5,11 +5,69 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nouvelle partie — Skyjo</title>
   <link rel="stylesheet" href="/skyjo/static/style.css">
+  <style>
+    .player-input-wrapper {
+      position: relative;
+    }
+    .autocomplete-list {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid #ccc;
+      border-top: none;
+      border-radius: 0 0 4px 4px;
+      max-height: 150px;
+      overflow-y: auto;
+      z-index: 1000;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .autocomplete-item {
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    .autocomplete-item:hover, .autocomplete-item.selected {
+      background: #0078d4;
+      color: white;
+    }
+    .group-selection {
+      background: #f7fafc;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    .group-select {
+      width: 100%;
+      padding: 10px;
+      font-size: 1rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      margin-bottom: 12px;
+    }
+    .new-group-fields {
+      display: none;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e2e8f0;
+    }
+    .new-group-fields.visible {
+      display: block;
+    }
+  </style>
 </head>
 <body>
   <div class="page-content">
   <h1>Nouvelle partie</h1>
   <p style="font-size: 1.1rem; color: #666; margin-bottom: 30px;">Choisissez le type de jeu</p>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      {% for message in messages %}
+        <div class="flash-message">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
 
   <!-- Tuiles de sélection du type -->
   <div id="game-type-selection" class="game-type-grid">
@@ -35,28 +93,216 @@
       <button type="button" id="rules-button" class="button button-rules" style="margin-left: 8px;">Voir les règles</button>
     </div>
 
+    <!-- Sélection du groupe -->
+    <div class="group-selection">
+      <label for="group_id"><strong>Groupe de joueurs</strong></label>
+      <select name="group_id" id="group_id" class="group-select" required>
+        <option value="" disabled {% if not default_group_id %}selected{% endif %}>-- Sélectionner un groupe --</option>
+        {% for group in user_groups %}
+        <option value="{{ group.id }}" {% if default_group_id and default_group_id|string == group.id|string %}selected{% endif %}>
+          {{ group.name }}
+        </option>
+        {% endfor %}
+        <option value="new">+ Créer un nouveau groupe</option>
+      </select>
+
+      <div id="new-group-fields" class="new-group-fields">
+        <input type="hidden" name="create_new_group" id="create_new_group" value="">
+        <div class="new-group-header">
+          <label for="new_group_name">Nom du nouveau groupe (optionnel)</label>
+          <button type="button" class="cancel-new-group">Annuler</button>
+        </div>
+        <input type="text" name="new_group_name" id="new_group_name" class="form-input" placeholder="Ex: Famille, Collègues...">
+        <small>Les joueurs seront automatiquement ajoutés au groupe</small>
+      </div>
+    </div>
+
     <label>Joueurs:</label>
     <div id="players-list">
-      <div><input name="player_1" class="player-input" placeholder="Joueur 1"></div>
-      <div><input name="player_2" class="player-input" placeholder="Joueur 2"></div>
-      <div><input name="player_3" class="player-input" placeholder="Joueur 3"></div>
-      <div><input name="player_4" class="player-input" placeholder="Joueur 4"></div>
-      <div><input name="player_5" class="player-input" placeholder="Joueur 5"></div>
-      <div class="extra-player"><input name="player_6" class="player-input" placeholder="Joueur 6"></div>
-      <div class="extra-player"><input name="player_7" class="player-input" placeholder="Joueur 7"></div>
-      <div class="extra-player"><input name="player_8" class="player-input" placeholder="Joueur 8"></div>
-      <div class="extra-player"><input name="player_9" class="player-input" placeholder="Joueur 9"></div>
-      <div class="extra-player"><input name="player_10" class="player-input" placeholder="Joueur 10"></div>
+      <div class="player-input-wrapper"><input name="player_1" class="player-input" placeholder="Joueur 1" autocomplete="off"></div>
+      <div class="player-input-wrapper"><input name="player_2" class="player-input" placeholder="Joueur 2" autocomplete="off"></div>
+      <div class="player-input-wrapper"><input name="player_3" class="player-input" placeholder="Joueur 3" autocomplete="off"></div>
+      <div class="player-input-wrapper"><input name="player_4" class="player-input" placeholder="Joueur 4" autocomplete="off"></div>
+      <div class="player-input-wrapper"><input name="player_5" class="player-input" placeholder="Joueur 5" autocomplete="off"></div>
+      <div class="extra-player player-input-wrapper"><input name="player_6" class="player-input" placeholder="Joueur 6" autocomplete="off"></div>
+      <div class="extra-player player-input-wrapper"><input name="player_7" class="player-input" placeholder="Joueur 7" autocomplete="off"></div>
+      <div class="extra-player player-input-wrapper"><input name="player_8" class="player-input" placeholder="Joueur 8" autocomplete="off"></div>
+      <div class="extra-player player-input-wrapper"><input name="player_9" class="player-input" placeholder="Joueur 9" autocomplete="off"></div>
+      <div class="extra-player player-input-wrapper"><input name="player_10" class="player-input" placeholder="Joueur 10" autocomplete="off"></div>
     </div>
     <button type="button" id="add-player">Plus de joueurs</button>
 
     <label>Commentaires: <input name="comments"></label><br>
     <input type="hidden" name="players" value="">
-    <button type="submit" class="button button-submit">Créer une partie</button>
+    <button type="submit" id="submit-btn" class="button button-submit">Créer une partie</button>
   </form>
 
   <script>
   document.addEventListener('DOMContentLoaded', function () {
+    // === AUTOCOMPLETE JOUEURS ===
+    var searchTimeout = null;
+    var currentAutocomplete = null;
+
+    function closeAllAutocomplete() {
+      document.querySelectorAll('.autocomplete-list').forEach(function(el) {
+        el.remove();
+      });
+      currentAutocomplete = null;
+    }
+
+    function setupAutocomplete(input) {
+      var wrapper = input.parentElement;
+      var selectedIndex = -1;
+
+      input.addEventListener('input', function() {
+        var query = input.value.trim();
+        closeAllAutocomplete();
+        selectedIndex = -1;
+
+        if (query.length < 1) return;
+
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(function() {
+          fetch('/skyjo/api/players/search?q=' + encodeURIComponent(query))
+            .then(function(r) { return r.json(); })
+            .then(function(players) {
+              if (players.length === 0) return;
+
+              var list = document.createElement('div');
+              list.className = 'autocomplete-list';
+
+              players.forEach(function(name, index) {
+                var item = document.createElement('div');
+                item.className = 'autocomplete-item';
+                item.textContent = name;
+                item.addEventListener('click', function() {
+                  input.value = name;
+                  closeAllAutocomplete();
+                });
+                list.appendChild(item);
+              });
+
+              wrapper.appendChild(list);
+              currentAutocomplete = list;
+            });
+        }, 200);
+      });
+
+      input.addEventListener('keydown', function(e) {
+        var list = wrapper.querySelector('.autocomplete-list');
+        if (!list) return;
+
+        var items = list.querySelectorAll('.autocomplete-item');
+        if (items.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+          items.forEach(function(el, i) {
+            el.classList.toggle('selected', i === selectedIndex);
+          });
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          selectedIndex = Math.max(selectedIndex - 1, 0);
+          items.forEach(function(el, i) {
+            el.classList.toggle('selected', i === selectedIndex);
+          });
+        } else if (e.key === 'Enter' && selectedIndex >= 0) {
+          e.preventDefault();
+          input.value = items[selectedIndex].textContent;
+          closeAllAutocomplete();
+        } else if (e.key === 'Escape') {
+          closeAllAutocomplete();
+        }
+      });
+
+      input.addEventListener('blur', function() {
+        setTimeout(closeAllAutocomplete, 150);
+      });
+    }
+
+    // Initialiser l'autocomplete sur tous les champs joueur
+    document.querySelectorAll('.player-input').forEach(setupAutocomplete);
+
+    // === FIN AUTOCOMPLETE ===
+
+    // === GESTION GROUPE ===
+    var groupSelect = document.getElementById('group_id');
+    var newGroupFields = document.getElementById('new-group-fields');
+    var createNewGroupInput = document.getElementById('create_new_group');
+    var submitBtn = document.getElementById('submit-btn');
+    var lastValidGroupId = '';
+    var isCreatingNewGroup = false;
+
+    // Met à jour le texte du bouton selon le mode
+    function updateSubmitButton() {
+      submitBtn.textContent = isCreatingNewGroup ? 'Créer la partie et le groupe' : 'Créer une partie';
+    }
+
+    // Charge les membres d'un groupe dans les champs joueurs
+    function loadGroupMembers(groupId) {
+      if (!groupId || groupId === 'new') return;
+
+      fetch('/skyjo/api/groups/' + groupId + '/members')
+        .then(function(r) { return r.json(); })
+        .then(function(members) {
+          // Remplir les champs joueurs avec les membres du groupe
+          var inputs = document.querySelectorAll('.player-input');
+          inputs.forEach(function(input, index) {
+            input.value = members[index] || '';
+            // Afficher les champs extra si nécessaire
+            if (index >= 5 && members[index]) {
+              input.parentElement.style.display = 'block';
+              input.parentElement.classList.add('visible');
+            }
+          });
+        });
+    }
+
+    // Vide tous les champs joueurs
+    function clearPlayerFields() {
+      document.querySelectorAll('.player-input').forEach(function(input) {
+        input.value = '';
+      });
+    }
+
+    groupSelect.addEventListener('change', function() {
+      if (groupSelect.value === 'new') {
+        // Mode création de groupe
+        newGroupFields.classList.add('visible');
+        createNewGroupInput.value = '1';
+        isCreatingNewGroup = true;
+        groupSelect.value = lastValidGroupId || '';
+        clearPlayerFields();
+        updateSubmitButton();
+      } else if (groupSelect.value) {
+        // Groupe existant sélectionné
+        newGroupFields.classList.remove('visible');
+        createNewGroupInput.value = '';
+        isCreatingNewGroup = false;
+        lastValidGroupId = groupSelect.value;
+        loadGroupMembers(groupSelect.value);
+        updateSubmitButton();
+      }
+    });
+
+    // Bouton pour annuler la création de groupe
+    newGroupFields.addEventListener('click', function(e) {
+      if (e.target.classList.contains('cancel-new-group')) {
+        newGroupFields.classList.remove('visible');
+        createNewGroupInput.value = '';
+        isCreatingNewGroup = false;
+        updateSubmitButton();
+      }
+    });
+
+    // Charger les membres si un groupe est présélectionné (via URL)
+    if (groupSelect.value && groupSelect.value !== '') {
+      lastValidGroupId = groupSelect.value;
+      loadGroupMembers(groupSelect.value);
+    }
+    // === FIN GESTION GROUPE ===
+
     var gameTypeSelection = document.getElementById('game-type-selection');
     var gameForm = document.getElementById('game-form');
     var gameTypeInput = document.getElementById('game-type');
@@ -144,7 +390,7 @@
     });
   });
   </script>
-  <button class="back-button">← Retour</button>
+  <button type="button" class="back-button">← Retour</button>
   </div>
 </body>
 </html>

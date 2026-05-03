@@ -89,9 +89,6 @@
     </div>
     </form>
 
-    <form method="post" id="terminate-form" action="/skyjo/terminate/{{ game['id'] }}" onsubmit="return confirm('Confirmez-vous la fin de la partie ?');" style="margin-top: 15px;">
-      <button type="submit" class="button" style="background: linear-gradient(135deg, #fc5c7d 0%, #6a82fb 100%);">🏁 Terminer la partie</button>
-    </form>
   {% endif %}
 
   <h2 style="margin-top: 50px; margin-bottom: 20px;">📜 Historique des rounds</h2>
@@ -136,6 +133,12 @@
     </tbody>
   </table>
   </div>
+
+  {% if not game['finished'] %}
+  <form method="post" id="terminate-form" action="/skyjo/terminate/{{ game['id'] }}" onsubmit="return confirm('Confirmez-vous la fin de la partie ?');" style="margin-top: 30px; text-align: center;">
+    <button type="submit" class="button" style="background: linear-gradient(135deg, #fc5c7d 0%, #6a82fb 100%);">🏁 Terminer la partie</button>
+  </form>
+  {% endif %}
 
   <a href="/skyjo/" class="back-button">← Retour à l'accueil</a>
 </div>

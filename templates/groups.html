@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mes groupes — Skyjo</title>
+  <link rel="stylesheet" href="/skyjo/static/style.css">
+</head>
+<body>
+  <div class="page-content">
+    <h1>Mes groupes</h1>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="flash-message">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="groups-actions">
+      <a href="/skyjo/groups/new" class="button button-submit">+ Créer un groupe</a>
+    </div>
+
+    {% if groups %}
+    <div class="groups-grid">
+      {% for group in groups %}
+      <a href="/skyjo/groups/{{ group.id }}" class="group-card">
+        <div class="group-icon">👥</div>
+        <h3>{{ group.name }}</h3>
+        <div class="group-stats">
+          <span>{{ group.member_count }} joueur(s)</span>
+          <span>{{ group.game_count }} partie(s)</span>
+        </div>
+        {% if group.role == 'owner' %}
+        <span class="group-badge owner">Propriétaire</span>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">📭</div>
+      <h2>Aucun groupe</h2>
+      <p>Créez votre premier groupe pour commencer à jouer !</p>
+      <a href="/skyjo/groups/new" class="button button-submit">Créer un groupe</a>
+    </div>
+    {% endif %}
+
+    <div class="page-actions">
+      <a href="/skyjo/" class="button button-secondary">← Retour à l'accueil</a>
+    </div>
+  </div>
+</body>
+</html>

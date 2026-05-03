@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nouveau groupe — Skyjo</title>
+  <link rel="stylesheet" href="/skyjo/static/style.css">
+</head>
+<body>
+  <div class="page-content">
+    <h1>Créer un groupe</h1>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="flash-message flash-error">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="post" class="group-form">
+      <div class="form-group">
+        <label for="name">Nom du groupe *</label>
+        <input
+          type="text"
+          id="name"
+          name="name"
+          class="form-input"
+          placeholder="Ex: Famille, Collègues, Les champions..."
+          required
+          autofocus
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="members">Joueurs du groupe</label>
+        <textarea
+          id="members"
+          name="members"
+          class="form-textarea"
+          placeholder="Entrez les noms des joueurs, séparés par des virgules&#10;Ex: Alice, Bob, Charlie"
+          rows="4"
+        ></textarea>
+        <small>Vous pourrez ajouter ou modifier les joueurs plus tard</small>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="button button-submit">Créer le groupe</button>
+        <a href="/skyjo/groups" class="button button-secondary">Annuler</a>
+      </div>
+    </form>
+  </div>
+</body>
+</html>

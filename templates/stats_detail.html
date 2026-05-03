@@ -9,10 +9,25 @@
 <body>
   <div class="page-content">
   <div style="margin-bottom: 20px;">
-    <a href="/skyjo/stats" class="button button-secondary">← Retour au menu stats</a>
+    <a href="/skyjo/stats{% if group_id %}?group={{ group_id }}{% endif %}" class="button button-secondary">← Retour au menu stats</a>
   </div>
-  <h1>📊 Statistiques - {{ game_type }}</h1>
+  <h1>Statistiques - {{ game_type }}</h1>
+
+  <!-- Sélecteur de groupe -->
+  <div class="stats-filter">
+    <label for="group-select">Filtrer par groupe :</label>
+    <select id="group-select" class="group-select" onchange="filterByGroup(this.value)">
+      <option value="">Tous mes groupes</option>
+      {% for group in user_groups %}
+      <option value="{{ group.id }}" {% if group_id and group_id|string == group.id|string %}selected{% endif %}>
+        {{ group.name }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+
   <p style="font-size: 1rem; color: #666; margin-bottom: 25px;">
+    {% if selected_group %}<strong>{{ selected_group.name }}</strong> · {% endif %}
     {{ total_games }} partie{{ 's' if total_games > 1 else '' }} · {{ total_rounds }} round{{ 's' if total_rounds > 1 else '' }}
   </p>
 
@@ -108,7 +123,7 @@
       </div>
     </div>
 
-    <!-- Tuile Le précoce -->
+    <!-- Tuile Le précoce (celui qui double le plus souvent) -->
     {% if most_doubled %}
     <div class="metro-tile tile-precoce">
       <div class="tile-header">
@@ -127,7 +142,7 @@
 
   <!-- Tableau détaillé -->
   <section class="stats-detail-section">
-    <h2>📈 Statistiques détaillées</h2>
+    <h2>Statistiques détaillées</h2>
     <div class="table-wrap">
       <table class="stats-table">
         <thead>
@@ -155,7 +170,7 @@
                 {{ loop.index }}
               {% endif %}
             </td>
-            <td class="player-name-col"><a href="/skyjo/stats/{{ game_type }}/player/{{ s.player }}" class="player-link"><strong>{{ s.player }}</strong></a></td>
+            <td class="player-name-col"><a href="/skyjo/stats/{{ game_type }}/player/{{ s.player }}{% if group_id %}?group={{ group_id }}{% endif %}" class="player-link"><strong>{{ s.player }}</strong></a></td>
             <td class="stat-col">{{ '%.2f'|format(s.mean) }}</td>
             <td class="stat-col stat-col-hide-mobile">{{ '%.2f'|format(s.median) }}</td>
             <td class="stat-col stat-col-hide-mobile stat-best">{{ s.best }}</td>
@@ -169,9 +184,23 @@
   </section>
 
   {% else %}
-  <p style="text-align: center; color: #999; margin-top: 40px;">Aucune statistique disponible pour ce type de jeu</p>
+  <div class="empty-state">
+    <div class="empty-icon">📊</div>
+    <h2>Aucune statistique</h2>
+    <p>{% if selected_group %}Aucune partie jouée dans ce groupe pour {{ game_type }}{% else %}Aucune statistique disponible pour ce type de jeu{% endif %}</p>
+  </div>
   {% endif %}
 
   </div>
+
+  <script>
+  function filterByGroup(groupId) {
+    var url = '/skyjo/stats/{{ game_type }}';
+    if (groupId) {
+      url += '?group=' + groupId;
+    }
+    window.location.href = url;
+  }
+  </script>
 </body>
 </html>
