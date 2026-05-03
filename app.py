@@ -360,6 +360,10 @@ def register():
             flash('Adresse email invalide')
             return render_template('register.html')
 
+        if not player_name:
+            flash('Le nom de joueur est obligatoire')
+            return render_template('register.html')
+
         if len(password) < 6:
             flash('Le mot de passe doit contenir au moins 6 caractères')
             return render_template('register.html')
