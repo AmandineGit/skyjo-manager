@@ -11,6 +11,9 @@
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
     <h1 style="margin: 0;">Skyjo Manager</h1>
     <div class="user-menu">
+      {% if session.get('user_email') == 'admin@skyjo.local' %}
+      <a href="/skyjo/admin" class="button button-secondary" style="margin: 0;">⚙ Admin</a>
+      {% endif %}
       <a href="/skyjo/profile" class="button button-secondary" style="margin: 0;">👤 {{ session.get('user_name', 'Profil') }}</a>
       <a href="/skyjo/logout" class="button button-danger" style="margin: 0;">Déconnexion</a>
     </div>
