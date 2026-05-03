@@ -25,7 +25,7 @@
     {% endif %}
   </p>
   <div style="margin-bottom: 30px;">
-    <button type="button" class="button button-rules" onclick="window.open('/skyjo/rules/{{ game['type'] }}', '_blank', 'width=800,height=600')">Voir les règles</button>
+    <button type="button" class="button button-rules" onclick="window.open('/skyjo/rules/' + encodeURIComponent('{{ game['type'] }}'), '_blank', 'width=800,height=600')">Voir les règles</button>
   </div>
 
   <!-- Tuile Score total -->
