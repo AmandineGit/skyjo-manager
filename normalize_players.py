@@ -124,7 +124,7 @@ def propagate_user_ids(conn, dry_run):
     ''')
     linked = cur.fetchall()
 
-    count = 0
+    changed = False
     for player_name, user_id in linked:
         # Propager user_id dans group_members
         cur.execute('''
@@ -140,7 +140,7 @@ def propagate_user_ids(conn, dry_run):
                     UPDATE group_members SET user_id = ?
                     WHERE player_name = ? AND user_id IS NULL
                 ''', (user_id, player_name))
-                count += n
+                changed = True
 
         # Ajouter dans group_users pour les groupes où le joueur apparaît
         cur.execute('''
@@ -159,11 +159,12 @@ def propagate_user_ids(conn, dry_run):
                         'INSERT INTO group_users (group_id, user_id, role) VALUES (?, ?, ?)',
                         (group_id, user_id, 'member')
                     )
+                    changed = True
 
-    if not dry_run and count:
+    if not dry_run and changed:
         conn.commit()
 
-    if count == 0 and dry_run is False:
+    if not changed and not dry_run:
         print("    Aucune propagation nécessaire.")
 
 
@@ -195,33 +196,31 @@ def main():
     # --- Détection ---
     duplicates = find_duplicates(conn)
 
-    if not duplicates:
-        print("Aucun doublon détecté.")
-        conn.close()
-        return 0
+    if duplicates:
+        print(f"{len(duplicates)} groupe(s) de noms similaires :\n")
+        for variants in duplicates.values():
+            canonical = choose_canonical(variants)
+            others = [v for v in variants if v != canonical]
+            print(f"  '{canonical}'  <--  {others}")
 
-    print(f"{len(duplicates)} groupe(s) de noms similaires :\n")
-    for variants in duplicates.values():
-        canonical = choose_canonical(variants)
-        others = [v for v in variants if v != canonical]
-        print(f"  '{canonical}'  <--  {others}")
+        # --- Confirmation ---
+        if not args.dry_run:
+            print()
+            r = input("Appliquer la fusion ? (oui/non) : ").strip().lower()
+            if r not in ('oui', 'o', 'yes', 'y'):
+                print("Annulé.")
+                conn.close()
+                return 0
 
-    # --- Confirmation ---
-    if not args.dry_run:
-        print()
-        r = input("Appliquer la fusion ? (oui/non) : ").strip().lower()
-        if r not in ('oui', 'o', 'yes', 'y'):
-            print("Annulé.")
-            conn.close()
-            return 0
-
-    # --- Renommage ---
-    print("\n--- Renommage ---")
-    for variants in duplicates.values():
-        canonical = choose_canonical(variants)
-        for v in variants:
-            if v != canonical:
-                rename_everywhere(conn, v, canonical, args.dry_run)
+        # --- Renommage ---
+        print("\n--- Renommage ---")
+        for variants in duplicates.values():
+            canonical = choose_canonical(variants)
+            for v in variants:
+                if v != canonical:
+                    rename_everywhere(conn, v, canonical, args.dry_run)
+    else:
+        print("Aucun doublon de noms détecté.\n")
 
     # --- Déduplication group_members ---
     print("\n--- Déduplication group_members ---")
