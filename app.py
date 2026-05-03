@@ -410,6 +410,21 @@ def register():
                 'UPDATE group_members SET user_id = ? WHERE player_name = ? AND user_id IS NULL',
                 (new_user_id, player_name)
             )
+            # Ajouter l'utilisateur dans group_users pour chaque groupe historique
+            historic_groups = db.execute(
+                'SELECT DISTINCT group_id FROM group_members WHERE player_name = ?',
+                (player_name,)
+            ).fetchall()
+            for row in historic_groups:
+                existing = db.execute(
+                    'SELECT id FROM group_users WHERE group_id = ? AND user_id = ?',
+                    (row['group_id'], new_user_id)
+                ).fetchone()
+                if not existing:
+                    db.execute(
+                        'INSERT INTO group_users (group_id, user_id, role) VALUES (?, ?, ?)',
+                        (row['group_id'], new_user_id, 'member')
+                    )
             db.commit()
 
         # Connexion automatique
@@ -469,6 +484,21 @@ def profile():
                     'UPDATE group_members SET user_id = ? WHERE player_name = ? AND user_id IS NULL',
                     (user['id'], player_name)
                 )
+                # Ajouter l'utilisateur dans group_users pour chaque groupe historique
+                historic_groups = db.execute(
+                    'SELECT DISTINCT group_id FROM group_members WHERE player_name = ?',
+                    (player_name,)
+                ).fetchall()
+                for row in historic_groups:
+                    existing = db.execute(
+                        'SELECT id FROM group_users WHERE group_id = ? AND user_id = ?',
+                        (row['group_id'], user['id'])
+                    ).fetchone()
+                    if not existing:
+                        db.execute(
+                            'INSERT INTO group_users (group_id, user_id, role) VALUES (?, ?, ?)',
+                            (row['group_id'], user['id'], 'member')
+                        )
                 db.commit()
 
             session['user_name'] = player_name or user['email']

@@ -114,7 +114,7 @@ def deduplicate_group_members(conn, dry_run):
 def propagate_user_ids(conn, dry_run):
     """
     Si un joueur est lié à un compte dans un groupe mais pas dans un autre,
-    propage le user_id aux entrées sans compte.
+    propage le user_id aux entrées sans compte et ajoute l'utilisateur dans group_users.
     """
     cur = conn.cursor()
     cur.execute('''
@@ -126,6 +126,7 @@ def propagate_user_ids(conn, dry_run):
 
     count = 0
     for player_name, user_id in linked:
+        # Propager user_id dans group_members
         cur.execute('''
             SELECT COUNT(*) FROM group_members
             WHERE player_name = ? AND user_id IS NULL
@@ -140,6 +141,24 @@ def propagate_user_ids(conn, dry_run):
                     WHERE player_name = ? AND user_id IS NULL
                 ''', (user_id, player_name))
                 count += n
+
+        # Ajouter dans group_users pour les groupes où le joueur apparaît
+        cur.execute('''
+            SELECT DISTINCT group_id FROM group_members WHERE player_name = ?
+        ''', (player_name,))
+        groups = cur.fetchall()
+        for (group_id,) in groups:
+            cur.execute(
+                'SELECT id FROM group_users WHERE group_id = ? AND user_id = ?',
+                (group_id, user_id)
+            )
+            if not cur.fetchone():
+                print(f"    '{player_name}': ajout dans group_users groupe {group_id}")
+                if not dry_run:
+                    cur.execute(
+                        'INSERT INTO group_users (group_id, user_id, role) VALUES (?, ?, ?)',
+                        (group_id, user_id, 'member')
+                    )
 
     if not dry_run and count:
         conn.commit()
