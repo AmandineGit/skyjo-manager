@@ -274,6 +274,16 @@ def init_db(reset=False):
         db.execute("ALTER TABLE games ADD COLUMN created_by INTEGER")
         db.commit()
 
+    # Migration : fusionner display_name dans player_name
+    cur = db.execute("PRAGMA table_info(users)")
+    user_cols = [r['name'] for r in cur.fetchall()]
+    if 'display_name' in user_cols:
+        db.execute('''
+            UPDATE users SET player_name = display_name
+            WHERE player_name IS NULL AND display_name IS NOT NULL
+        ''')
+        db.commit()
+
     # Initialize default game rules
     cur = db.execute("SELECT COUNT(*) as cnt FROM game_rules")
     if cur.fetchone()['cnt'] == 0:
@@ -318,7 +328,7 @@ def login():
         if user and check_password_hash(user['password_hash'], password):
             session['user_id'] = user['id']
             session['user_email'] = user['email']
-            session['user_name'] = user['display_name'] or user['email']
+            session['user_name'] = user['player_name'] or user['email']
             return redirect('/skyjo/')
         else:
             flash('Email ou mot de passe incorrect')
@@ -335,7 +345,7 @@ def register():
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
         password_confirm = request.form.get('password_confirm', '')
-        display_name = request.form.get('display_name', '').strip()
+        player_name = request.form.get('player_name', '').strip()
 
         # Validations
         if not email or '@' not in email:
@@ -370,14 +380,14 @@ def register():
                   f'Vérifiez l\'orthographe de votre email.')
             return render_template('register.html')
 
-        # Vérifier si un autre utilisateur a un display_name similaire
-        if display_name:
-            display_name_normalized = normalize_name(display_name)
-            existing_users = db.execute('SELECT display_name FROM users').fetchall()
+        # Vérifier si un autre utilisateur a un player_name similaire
+        if player_name:
+            player_name_normalized = normalize_name(player_name)
+            existing_users = db.execute('SELECT player_name FROM users').fetchall()
             similar_names = []
             for u in existing_users:
-                if u['display_name'] and normalize_name(u['display_name']) == display_name_normalized:
-                    similar_names.append(u['display_name'])
+                if u['player_name'] and normalize_name(u['player_name']) == player_name_normalized:
+                    similar_names.append(u['player_name'])
             if similar_names:
                 flash(f'Un utilisateur avec un nom similaire existe déjà : {", ".join(similar_names)}. '
                       f'Ajoutez une distinction (ex: initiale du nom de famille).')
@@ -388,15 +398,24 @@ def register():
         now = datetime.now(timezone.utc).isoformat()
         cur = db.cursor()
         cur.execute(
-            'INSERT INTO users (email, password_hash, display_name, created_at) VALUES (?, ?, ?, ?)',
-            (email, password_hash, display_name or None, now)
+            'INSERT INTO users (email, password_hash, player_name, created_at) VALUES (?, ?, ?, ?)',
+            (email, password_hash, player_name or None, now)
         )
         db.commit()
+        new_user_id = cur.lastrowid
+
+        # Rattacher l'historique des parties au nouveau compte
+        if player_name:
+            db.execute(
+                'UPDATE group_members SET user_id = ? WHERE player_name = ? AND user_id IS NULL',
+                (new_user_id, player_name)
+            )
+            db.commit()
 
         # Connexion automatique
-        session['user_id'] = cur.lastrowid
+        session['user_id'] = new_user_id
         session['user_email'] = email
-        session['user_name'] = display_name or email
+        session['user_name'] = player_name or email
         flash('Compte créé avec succès !')
         return redirect('/skyjo/')
 
@@ -420,31 +439,39 @@ def profile():
         db = get_db()
 
         if action == 'update_profile':
-            display_name = request.form.get('display_name', '').strip()
             player_name = request.form.get('player_name', '').strip()
 
-            # Vérifier si un autre utilisateur a un display_name similaire
-            if display_name:
-                display_name_normalized = normalize_name(display_name)
+            # Vérifier si un autre utilisateur a un player_name similaire
+            if player_name:
+                player_name_normalized = normalize_name(player_name)
                 existing_users = db.execute(
-                    'SELECT id, display_name FROM users WHERE id != ?',
+                    'SELECT id, player_name FROM users WHERE id != ?',
                     (user['id'],)
                 ).fetchall()
                 similar_names = []
                 for u in existing_users:
-                    if u['display_name'] and normalize_name(u['display_name']) == display_name_normalized:
-                        similar_names.append(u['display_name'])
+                    if u['player_name'] and normalize_name(u['player_name']) == player_name_normalized:
+                        similar_names.append(u['player_name'])
                 if similar_names:
                     flash(f'Un utilisateur avec un nom similaire existe déjà : {", ".join(similar_names)}. '
                           f'Ajoutez une distinction (ex: initiale du nom).')
                     return redirect('/skyjo/profile')
 
             db.execute(
-                'UPDATE users SET display_name = ?, player_name = ? WHERE id = ?',
-                (display_name or None, player_name or None, user['id'])
+                'UPDATE users SET player_name = ? WHERE id = ?',
+                (player_name or None, user['id'])
             )
             db.commit()
-            session['user_name'] = display_name or user['email']
+
+            # Rattacher l'historique des parties au compte
+            if player_name:
+                db.execute(
+                    'UPDATE group_members SET user_id = ? WHERE player_name = ? AND user_id IS NULL',
+                    (user['id'], player_name)
+                )
+                db.commit()
+
+            session['user_name'] = player_name or user['email']
             flash('Profil mis à jour')
 
         elif action == 'change_password':
@@ -782,7 +809,7 @@ def group_detail(group_id):
         FROM users u
         JOIN group_users gu ON u.id = gu.user_id
         WHERE gu.group_id = ?
-        ORDER BY gu.role DESC, u.display_name
+        ORDER BY gu.role DESC, u.player_name
     ''', (group_id,)).fetchall()
     games = db.execute('''
         SELECT g.*,
@@ -946,7 +973,7 @@ def new_game():
 
     # Si l'utilisateur n'a pas de groupe, en créer un par défaut
     if not user_groups:
-        default_name = f"Groupe de {user['display_name'] or user['email'].split('@')[0]}"
+        default_name = f"Groupe de {user['player_name'] or user['email'].split('@')[0]}"
         cur.execute(
             'INSERT INTO player_groups (name, created_by, created_at) VALUES (?, ?, ?)',
             (default_name, user['id'], now)

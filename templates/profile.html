@@ -30,28 +30,16 @@
         </div>
 
         <div class="form-group">
-          <label for="display_name">Nom d'affichage</label>
-          <input
-            type="text"
-            id="display_name"
-            name="display_name"
-            class="form-input"
-            value="{{ user.display_name or '' }}"
-            placeholder="Comment vous appeler ?"
-          >
-        </div>
-
-        <div class="form-group">
-          <label for="player_name">Nom de joueur associé</label>
+          <label for="player_name">Nom de joueur</label>
           <input
             type="text"
             id="player_name"
             name="player_name"
             class="form-input"
             value="{{ user.player_name or '' }}"
-            placeholder="Votre nom dans les parties (optionnel)"
+            placeholder="Votre prénom ou pseudo"
           >
-          <small>Si vous jouez souvent, associez votre nom pour voir vos stats</small>
+          <small>Ce nom sert à la fois d'affichage et à rattacher votre historique de parties</small>
         </div>
 
         <button type="submit" class="button button-submit">Enregistrer</button>

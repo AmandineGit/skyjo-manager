@@ -52,7 +52,7 @@
         <div class="users-list">
           {% for u in users %}
           <div class="user-item">
-            <span class="user-name">{{ u.display_name or u.email }}</span>
+            <span class="user-name">{{ u.player_name or u.email }}</span>
             <span class="user-role {{ u.role }}">{{ 'Propriétaire' if u.role == 'owner' else 'Membre' }}</span>
           </div>
           {% endfor %}
