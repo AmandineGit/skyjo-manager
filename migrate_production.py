@@ -79,9 +79,10 @@ def analyze_database(conn):
     print(f"  - Noms: {', '.join(all_players)}")
 
     # Trouver les combinaisons de joueurs
+    # Note: GROUP_CONCAT avec ORDER BY n'est pas supporté dans les anciennes versions de SQLite
     cur.execute('''
-        SELECT game_id, GROUP_CONCAT(name ORDER BY name) as player_combo
-        FROM players
+        SELECT game_id, GROUP_CONCAT(name) as player_combo
+        FROM (SELECT game_id, name FROM players ORDER BY game_id, name)
         GROUP BY game_id
     ''')
 
@@ -280,8 +281,8 @@ def associate_games_to_groups(conn, group_mapping, admin_id, dry_run=False):
 
     # Récupérer toutes les parties avec leurs joueurs
     cur.execute('''
-        SELECT game_id, GROUP_CONCAT(name ORDER BY name) as player_combo
-        FROM players
+        SELECT game_id, GROUP_CONCAT(name) as player_combo
+        FROM (SELECT game_id, name FROM players ORDER BY game_id, name)
         GROUP BY game_id
     ''')
 
