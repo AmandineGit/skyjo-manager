@@ -54,6 +54,33 @@
     .new-group-fields.visible {
       display: block;
     }
+    /* Avertissement doublon */
+    .duplicate-warning {
+      color: #d97706;
+      font-size: 0.85rem;
+      margin-top: 4px;
+      padding: 6px 10px;
+      background: #fef3c7;
+      border-radius: 4px;
+      border-left: 3px solid #f59e0b;
+    }
+    .player-input.has-duplicate {
+      border-color: #f59e0b;
+      background-color: #fffbeb;
+    }
+    .player-input.has-error {
+      border-color: #dc2626;
+      background-color: #fef2f2;
+    }
+    .duplicate-error {
+      color: #dc2626;
+      font-size: 0.85rem;
+      margin-top: 4px;
+      padding: 6px 10px;
+      background: #fef2f2;
+      border-radius: 4px;
+      border-left: 3px solid #dc2626;
+    }
   </style>
 </head>
 <body>
@@ -365,15 +392,131 @@
       }
     });
 
+    // === DETECTION DES DOUBLONS ===
+    // Normalise un nom (supprime accents, minuscules)
+    function normalizeName(name) {
+      return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    }
+
+    // Vérifie les doublons dans le formulaire
+    function checkDuplicatesInForm() {
+      var inputs = document.querySelectorAll('.player-input');
+      var names = {};
+      var hasDuplicates = false;
+
+      // Nettoyer les avertissements existants
+      document.querySelectorAll('.duplicate-error').forEach(function(el) { el.remove(); });
+      inputs.forEach(function(input) {
+        input.classList.remove('has-error');
+      });
+
+      // Collecter les noms normalisés
+      inputs.forEach(function(input) {
+        var name = input.value.trim();
+        if (!name) return;
+        var normalized = normalizeName(name);
+        if (!names[normalized]) {
+          names[normalized] = [];
+        }
+        names[normalized].push({ input: input, name: name });
+      });
+
+      // Marquer les doublons
+      Object.keys(names).forEach(function(normalized) {
+        var entries = names[normalized];
+        if (entries.length > 1) {
+          hasDuplicates = true;
+          entries.forEach(function(entry) {
+            entry.input.classList.add('has-error');
+            // Ajouter un message d'erreur si pas déjà présent
+            var wrapper = entry.input.parentElement;
+            if (!wrapper.querySelector('.duplicate-error')) {
+              var warning = document.createElement('div');
+              warning.className = 'duplicate-error';
+              var otherNames = entries.filter(function(e) { return e !== entry; }).map(function(e) { return '"' + e.name + '"'; }).join(', ');
+              warning.textContent = 'Nom similaire à ' + otherNames + '. Ajoutez une distinction (ex: initiale).';
+              wrapper.appendChild(warning);
+            }
+          });
+        }
+      });
+
+      return hasDuplicates;
+    }
+
+    // Vérifie si un nom existe déjà dans la base
+    var duplicateCheckTimeout = null;
+    function checkDuplicateInDB(input) {
+      var name = input.value.trim();
+      var groupId = groupSelect.value;
+      var wrapper = input.parentElement;
+
+      // Nettoyer l'avertissement existant
+      var existingWarning = wrapper.querySelector('.duplicate-warning');
+      if (existingWarning) existingWarning.remove();
+      input.classList.remove('has-duplicate');
+
+      if (!name || name.length < 2) return;
+
+      clearTimeout(duplicateCheckTimeout);
+      duplicateCheckTimeout = setTimeout(function() {
+        var url = '/skyjo/api/players/check-duplicate?name=' + encodeURIComponent(name);
+        if (groupId && groupId !== 'new') {
+          url += '&group_id=' + groupId;
+        }
+
+        fetch(url)
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.similar_names && data.similar_names.length > 0) {
+              // Vérifier que ce n'est pas le même nom exact
+              var isDifferent = data.similar_names.some(function(n) {
+                return n.toLowerCase() !== name.toLowerCase();
+              });
+              if (isDifferent) {
+                input.classList.add('has-duplicate');
+                var warning = document.createElement('div');
+                warning.className = 'duplicate-warning';
+                warning.textContent = 'Nom similaire existant : ' + data.similar_names.join(', ') + '. Voulez-vous utiliser ce nom ?';
+                wrapper.appendChild(warning);
+              }
+            }
+          });
+      }, 300);
+    }
+
+    // Ajouter la détection de doublons sur tous les champs
+    document.querySelectorAll('.player-input').forEach(function(input) {
+      input.addEventListener('blur', function() {
+        checkDuplicatesInForm();
+        checkDuplicateInDB(input);
+      });
+      input.addEventListener('input', function() {
+        // Nettoyer les erreurs pendant la saisie
+        input.classList.remove('has-error', 'has-duplicate');
+        var wrapper = input.parentElement;
+        var warnings = wrapper.querySelectorAll('.duplicate-warning, .duplicate-error');
+        warnings.forEach(function(w) { w.remove(); });
+      });
+    });
+    // === FIN DETECTION DOUBLONS ===
+
     // Soumission du formulaire
     var form = document.querySelector('form');
-    form.addEventListener('submit', function () {
+    form.addEventListener('submit', function (e) {
       var names = [];
       for (var i=1;i<=10;i++){
         var el = document.querySelector('[name="player_'+i+'"]');
         if (el && el.value.trim()) names.push(el.value.trim());
       }
       document.querySelector('[name=players]').value = names.join(',');
+
+      // Vérifier les doublons avant soumission
+      if (checkDuplicatesInForm()) {
+        e.preventDefault();
+        alert('Des joueurs ont des noms similaires. Veuillez les distinguer (ex: ajoutez une initiale).');
+        return false;
+      }
     });
 
     // Bouton retour global

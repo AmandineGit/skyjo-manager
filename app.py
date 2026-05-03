@@ -351,10 +351,37 @@ def register():
             return render_template('register.html')
 
         db = get_db()
+
+        # Vérifier si l'email exact existe déjà
         existing = db.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone()
         if existing:
             flash('Cette adresse email est déjà utilisée')
             return render_template('register.html')
+
+        # Vérifier si un email similaire existe (avec/sans accents)
+        email_normalized = normalize_name(email)
+        all_emails = db.execute('SELECT email FROM users').fetchall()
+        similar_emails = []
+        for u in all_emails:
+            if normalize_name(u['email']) == email_normalized and u['email'] != email:
+                similar_emails.append(u['email'])
+        if similar_emails:
+            flash(f'Un email similaire existe déjà : {", ".join(similar_emails)}. '
+                  f'Vérifiez l\'orthographe de votre email.')
+            return render_template('register.html')
+
+        # Vérifier si un autre utilisateur a un display_name similaire
+        if display_name:
+            display_name_normalized = normalize_name(display_name)
+            existing_users = db.execute('SELECT display_name FROM users').fetchall()
+            similar_names = []
+            for u in existing_users:
+                if u['display_name'] and normalize_name(u['display_name']) == display_name_normalized:
+                    similar_names.append(u['display_name'])
+            if similar_names:
+                flash(f'Un utilisateur avec un nom similaire existe déjà : {", ".join(similar_names)}. '
+                      f'Ajoutez une distinction (ex: initiale du nom de famille).')
+                return render_template('register.html')
 
         # Créer le compte
         password_hash = generate_password_hash(password)
@@ -395,6 +422,22 @@ def profile():
         if action == 'update_profile':
             display_name = request.form.get('display_name', '').strip()
             player_name = request.form.get('player_name', '').strip()
+
+            # Vérifier si un autre utilisateur a un display_name similaire
+            if display_name:
+                display_name_normalized = normalize_name(display_name)
+                existing_users = db.execute(
+                    'SELECT id, display_name FROM users WHERE id != ?',
+                    (user['id'],)
+                ).fetchall()
+                similar_names = []
+                for u in existing_users:
+                    if u['display_name'] and normalize_name(u['display_name']) == display_name_normalized:
+                        similar_names.append(u['display_name'])
+                if similar_names:
+                    flash(f'Un utilisateur avec un nom similaire existe déjà : {", ".join(similar_names)}. '
+                          f'Ajoutez une distinction (ex: initiale du nom).')
+                    return redirect('/skyjo/profile')
 
             db.execute(
                 'UPDATE users SET display_name = ?, player_name = ? WHERE id = ?',
@@ -581,6 +624,65 @@ def search_players():
             matches.append(name)
 
     return jsonify(matches[:10])  # Limite à 10 suggestions
+
+
+@app.route('/api/players/check-duplicate')
+@require_auth
+def check_player_duplicate():
+    """
+    API pour vérifier si un nom de joueur existe déjà (avec ou sans accents).
+    Utilisé pour alerter l'utilisateur avant de créer un doublon.
+
+    Params:
+        name: Le nom à vérifier
+        group_id: (optionnel) ID du groupe pour limiter la recherche
+
+    Returns:
+        JSON avec:
+        - exists: True si un nom similaire existe
+        - similar_names: Liste des noms similaires trouvés
+        - message: Message à afficher à l'utilisateur
+    """
+    name = request.args.get('name', '').strip()
+    group_id = request.args.get('group_id')
+
+    if not name:
+        return jsonify({'exists': False, 'similar_names': [], 'message': ''})
+
+    db = get_db()
+    name_normalized = normalize_name(name)
+
+    # Chercher les noms similaires dans tous les joueurs ou dans un groupe spécifique
+    if group_id:
+        all_players = db.execute('''
+            SELECT DISTINCT player_name as name FROM group_members WHERE group_id = ?
+            UNION
+            SELECT DISTINCT name FROM players p
+            JOIN games g ON p.game_id = g.id
+            WHERE g.group_id = ?
+        ''', (group_id, group_id)).fetchall()
+    else:
+        all_players = db.execute(
+            'SELECT DISTINCT name FROM players ORDER BY name'
+        ).fetchall()
+
+    # Trouver les noms qui ont la même normalisation
+    similar_names = []
+    for row in all_players:
+        existing_name = row['name']
+        if normalize_name(existing_name) == name_normalized and existing_name != name:
+            similar_names.append(existing_name)
+
+    if similar_names:
+        return jsonify({
+            'exists': True,
+            'similar_names': similar_names,
+            'message': f"Un joueur similaire existe déjà : {', '.join(similar_names)}. "
+                       f"Si c'est la même personne, utilisez le nom existant. "
+                       f"Si c'est une personne différente, ajoutez une distinction (ex: initiale du nom)."
+        })
+
+    return jsonify({'exists': False, 'similar_names': [], 'message': ''})
 
 
 # ==================== GESTION DES GROUPES ====================
@@ -883,6 +985,23 @@ def new_game():
             players = [p.strip() for p in players_raw.split(',') if p.strip()]
         if not players:
             flash('Ajoutez au moins un joueur (au moins 1).')
+            return redirect('/skyjo/new')
+
+        # Vérifier les doublons de noms dans la liste des joueurs soumis
+        # (deux joueurs avec le même nom normalisé dans la même partie)
+        normalized_players = {}
+        duplicates_in_form = []
+        for p in players:
+            p_normalized = normalize_name(p)
+            if p_normalized in normalized_players:
+                duplicates_in_form.append((normalized_players[p_normalized], p))
+            else:
+                normalized_players[p_normalized] = p
+
+        if duplicates_in_form:
+            dup_msg = ', '.join([f'"{a}" et "{b}"' for a, b in duplicates_in_form])
+            flash(f'Noms de joueurs identiques détectés : {dup_msg}. '
+                  f'Si ce sont des personnes différentes, ajoutez une distinction (ex: initiale du nom).')
             return redirect('/skyjo/new')
 
         # Créer un nouveau groupe si demandé
