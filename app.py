@@ -422,6 +422,7 @@ def register():
             ''').fetchall()
             existing_players = [r for r in all_members
                                 if normalize_name(r['player_name']) == player_name_normalized]
+            print(f"DEBUG interstitiel: player_name={player_name!r} normalized={player_name_normalized!r} all_members={len(all_members)} matches={len(existing_players)}")
             if existing_players:
                 # Nom canonique = celui de la base (avec la bonne casse/accents)
                 canonical_player_name = existing_players[0]['player_name']
@@ -803,8 +804,11 @@ def groups_list():
 @app.route('/groups/new', methods=['GET', 'POST'])
 @require_auth
 def groups_new():
-    """Créer un nouveau groupe."""
+    """Créer un nouveau groupe (admin uniquement)."""
     user = get_current_user()
+    if not is_admin(user):
+        flash('Seul l\'administrateur peut créer des groupes')
+        return redirect('/skyjo/groups')
 
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
@@ -854,13 +858,14 @@ def group_detail(group_id):
     user = get_current_user()
     db = get_db()
 
-    # Vérifier que l'utilisateur a accès au groupe
-    access = db.execute(
-        'SELECT * FROM group_users WHERE group_id = ? AND user_id = ?',
-        (group_id, user['id'])
-    ).fetchone()
+    # Vérifier l'accès : group_users OU group_members
+    has_access = is_admin(user) or db.execute('''
+        SELECT 1 FROM group_users WHERE group_id = ? AND user_id = ?
+        UNION
+        SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?
+    ''', (group_id, user['id'], group_id, user['id'])).fetchone()
 
-    if not access:
+    if not has_access:
         flash('Vous n\'avez pas accès à ce groupe')
         return redirect('/skyjo/groups')
 
@@ -887,7 +892,7 @@ def group_detail(group_id):
 
     return render_template('group_detail.html',
                            group=group, members=members, users=users,
-                           games=games, user=user, user_role=access['role'])
+                           games=games, user=user, is_admin=is_admin(user))
 
 
 @app.route('/groups/<int:group_id>/edit', methods=['POST'])
@@ -897,14 +902,8 @@ def group_edit(group_id):
     user = get_current_user()
     db = get_db()
 
-    # Vérifier que l'utilisateur est owner du groupe
-    access = db.execute(
-        'SELECT * FROM group_users WHERE group_id = ? AND user_id = ? AND role = ?',
-        (group_id, user['id'], 'owner')
-    ).fetchone()
-
-    if not access:
-        flash('Vous n\'avez pas les droits pour modifier ce groupe')
+    if not is_admin(user):
+        flash('Seul l\'administrateur peut modifier les groupes')
         return redirect(f'/skyjo/groups/{group_id}')
 
     action = request.form.get('action')
@@ -1346,6 +1345,64 @@ def edit_round(game_id, round_number):
 
     except Exception as e:
         return {'success': False, 'error': str(e)}, 500
+
+@app.route('/admin')
+@require_auth
+def admin_panel():
+    user = get_current_user()
+    if not is_admin(user):
+        flash('Accès réservé à l\'administrateur')
+        return redirect('/skyjo/')
+    db = get_db()
+    users = db.execute(
+        'SELECT id, email, player_name, created_at, last_login FROM users ORDER BY created_at'
+    ).fetchall()
+    groups = db.execute('''
+        SELECT pg.*,
+               (SELECT COUNT(*) FROM group_members WHERE group_id = pg.id) as member_count,
+               (SELECT COUNT(*) FROM games WHERE group_id = pg.id) as game_count
+        FROM player_groups pg ORDER BY pg.name
+    ''').fetchall()
+    return render_template('admin.html', users=users, groups=groups, user=user)
+
+
+@app.route('/admin/users/<int:user_id>/reset-password', methods=['POST'])
+@require_auth
+def admin_reset_password(user_id):
+    current_user = get_current_user()
+    if not is_admin(current_user):
+        flash('Accès réservé à l\'administrateur')
+        return redirect('/skyjo/')
+    new_password = request.form.get('new_password', '').strip()
+    if len(new_password) < 6:
+        flash('Le mot de passe doit contenir au moins 6 caractères')
+        return redirect('/skyjo/admin')
+    db = get_db()
+    db.execute(
+        'UPDATE users SET password_hash = ? WHERE id = ?',
+        (generate_password_hash(new_password), user_id)
+    )
+    db.commit()
+    target = db.execute('SELECT email, player_name FROM users WHERE id = ?', (user_id,)).fetchone()
+    flash(f'Mot de passe réinitialisé pour {target["player_name"] or target["email"]}')
+    return redirect('/skyjo/admin')
+
+
+@app.route('/admin/users/<int:user_id>/set-name', methods=['POST'])
+@require_auth
+def admin_set_player_name(user_id):
+    current_user = get_current_user()
+    if not is_admin(current_user):
+        flash('Accès réservé à l\'administrateur')
+        return redirect('/skyjo/')
+    player_name = request.form.get('player_name', '').strip()
+    db = get_db()
+    db.execute('UPDATE users SET player_name = ? WHERE id = ?',
+               (player_name or None, user_id))
+    db.commit()
+    flash(f'Nom mis à jour')
+    return redirect('/skyjo/admin')
+
 
 @app.route('/export')
 @require_auth

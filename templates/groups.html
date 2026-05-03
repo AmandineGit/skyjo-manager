@@ -18,9 +18,11 @@
       {% endif %}
     {% endwith %}
 
+    {% if user.email == 'admin@skyjo.local' %}
     <div class="groups-actions">
       <a href="/skyjo/groups/new" class="button button-submit">+ Créer un groupe</a>
     </div>
+    {% endif %}
 
     {% if groups %}
     <div class="groups-grid">
@@ -32,9 +34,6 @@
           <span>{{ group.member_count }} joueur(s)</span>
           <span>{{ group.game_count }} partie(s)</span>
         </div>
-        {% if group.role == 'owner' %}
-        <span class="group-badge owner">Propriétaire</span>
-        {% endif %}
       </a>
       {% endfor %}
     </div>
@@ -42,8 +41,7 @@
     <div class="empty-state">
       <div class="empty-icon">📭</div>
       <h2>Aucun groupe</h2>
-      <p>Créez votre premier groupe pour commencer à jouer !</p>
-      <a href="/skyjo/groups/new" class="button button-submit">Créer un groupe</a>
+      <p>Vos groupes apparaîtront ici une fois que vous aurez participé à des parties.</p>
     </div>
     {% endif %}
 

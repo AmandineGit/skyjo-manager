@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administration — Skyjo</title>
+  <link rel="stylesheet" href="/skyjo/static/style.css">
+  <style>
+    .admin-section { margin-bottom: 40px; }
+    .admin-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    .admin-table th { text-align: left; padding: 8px 12px; background: #f5f5f5; border-bottom: 2px solid #ddd; font-size: 0.85em; color: #666; }
+    .admin-table td { padding: 8px 12px; border-bottom: 1px solid #eee; vertical-align: middle; }
+    .admin-table tr:hover td { background: #fafafa; }
+    .reset-form { display: flex; gap: 6px; align-items: center; }
+    .reset-form input { padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85em; width: 140px; }
+    .btn-sm { padding: 4px 10px; font-size: 0.8em; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-warning { background: #f0ad4e; color: white; }
+    .btn-warning:hover { background: #ec971f; }
+    .name-form { display: flex; gap: 6px; align-items: center; }
+    .name-form input { padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85em; width: 120px; }
+    .no-name { color: #aaa; font-style: italic; }
+  </style>
+</head>
+<body>
+  <div class="page-content">
+    <h1>Administration</h1>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="flash-message">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- Utilisateurs -->
+    <div class="admin-section">
+      <h2>Utilisateurs ({{ users|length }})</h2>
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Nom de joueur</th>
+            <th>Créé le</th>
+            <th>Dernière connexion</th>
+            <th>Réinitialiser le mot de passe</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td>{{ u.email }}</td>
+            <td>
+              <form method="post" action="/skyjo/admin/users/{{ u.id }}/set-name" class="name-form">
+                <input type="text" name="player_name" value="{{ u.player_name or '' }}" placeholder="(aucun)">
+                <button type="submit" class="btn-sm" style="background:#e0e0e0">✓</button>
+              </form>
+            </td>
+            <td style="font-size:0.85em;color:#888">{{ u.created_at|format_date_fr if u.created_at else '—' }}</td>
+            <td style="font-size:0.85em;color:#888">{{ u.last_login|format_date_fr if u.last_login else 'jamais' }}</td>
+            <td>
+              {% if u.email != 'admin@skyjo.local' %}
+              <form method="post" action="/skyjo/admin/users/{{ u.id }}/reset-password" class="reset-form">
+                <input type="password" name="new_password" placeholder="Nouveau mdp" minlength="6" required>
+                <button type="submit" class="btn-sm btn-warning">Réinitialiser</button>
+              </form>
+              {% else %}
+              <span class="no-name">compte admin</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Groupes -->
+    <div class="admin-section">
+      <h2>Groupes ({{ groups|length }})</h2>
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Joueurs</th>
+            <th>Parties</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for g in groups %}
+          <tr>
+            <td><a href="/skyjo/groups/{{ g.id }}">{{ g.name }}</a></td>
+            <td>{{ g.member_count }}</td>
+            <td>{{ g.game_count }}</td>
+            <td><a href="/skyjo/groups/{{ g.id }}" class="btn-sm" style="background:#e0e0e0;text-decoration:none;padding:4px 10px;border-radius:4px">Gérer</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div style="margin-top:12px">
+        <a href="/skyjo/groups/new" class="button button-submit">+ Créer un groupe</a>
+      </div>
+    </div>
+
+    <div class="page-actions">
+      <a href="/skyjo/" class="button button-secondary">← Retour à l'accueil</a>
+    </div>
+  </div>
+</body>
+</html>
