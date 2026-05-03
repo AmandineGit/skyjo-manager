@@ -21,6 +21,30 @@
         {% endif %}
       {% endwith %}
 
+      {% if player_match %}
+      <div class="flash-message" style="background:#fff3cd;border:1px solid #ffc107;margin-bottom:20px;text-align:left">
+        <strong>Ce nom existe déjà dans des parties :</strong>
+        <ul style="margin:8px 0 8px 18px">
+          {% for p in player_match %}
+          <li>{{ p.group_name }}{% if p.last_game %} — dernière partie : {{ p.last_game|format_date_fr }}{% endif %}</li>
+          {% endfor %}
+        </ul>
+        <p style="margin:8px 0">Voulez-vous rattacher votre compte à cet historique ?</p>
+        <form method="post" style="display:inline">
+          <input type="hidden" name="email" value="{{ form_email }}">
+          <input type="hidden" name="player_name" value="{{ form_player_name }}">
+          <input type="hidden" name="password" value="">
+          <input type="hidden" name="password_confirm" value="">
+          <input type="hidden" name="player_match_confirmed" value="1">
+          <p style="font-size:0.85em;color:#666;margin:4px 0">Entrez à nouveau votre mot de passe pour confirmer :</p>
+          <input type="password" name="password" class="login-input" placeholder="Mot de passe" required minlength="6" style="margin-bottom:6px">
+          <input type="password" name="password_confirm" class="login-input" placeholder="Confirmer" required style="margin-bottom:10px">
+          <button type="submit" class="button button-submit">Oui, rattacher mon historique</button>
+        </form>
+        <br><br>
+        <a href="/skyjo/register" class="button button-secondary" style="font-size:0.9em">Non, utiliser un nom différent</a>
+      </div>
+      {% else %}
       <form method="post" class="login-form">
         <div class="form-group">
           <label for="email">Email *</label>
@@ -71,6 +95,7 @@
         </div>
         <button type="submit" class="button button-submit login-submit">Créer mon compte</button>
       </form>
+      {% endif %}
 
       <div class="login-links">
         <a href="/skyjo/login">Déjà un compte ? Se connecter</a>

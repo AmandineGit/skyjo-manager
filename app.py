@@ -89,20 +89,20 @@ def is_admin(user):
 
 def get_user_group_ids(user):
     """
-    Récupère les IDs des groupes accessibles par l'utilisateur.
-    L'admin a accès à tous les groupes.
+    Récupère les IDs des groupes accessibles par l'utilisateur :
+    ceux où il est gestionnaire (group_users) ET ceux où il est joueur (group_members).
     """
     db = get_db()
     if is_admin(user):
-        # Admin voit tous les groupes
         groups = db.execute('SELECT id FROM player_groups').fetchall()
     else:
-        # Utilisateur normal voit uniquement ses groupes
         groups = db.execute('''
-            SELECT pg.id FROM player_groups pg
-            JOIN group_users gu ON pg.id = gu.group_id
-            WHERE gu.user_id = ?
-        ''', (user['id'],)).fetchall()
+            SELECT id FROM player_groups WHERE id IN (
+                SELECT group_id FROM group_users WHERE user_id = ?
+                UNION
+                SELECT group_id FROM group_members WHERE user_id = ?
+            )
+        ''', (user['id'], user['id'])).fetchall()
     return [g['id'] for g in groups]
 
 
@@ -274,9 +274,14 @@ def init_db(reset=False):
         db.execute("ALTER TABLE games ADD COLUMN created_by INTEGER")
         db.commit()
 
-    # Migration : fusionner display_name dans player_name
+    # Migration : ajouter last_login à users si manquant
     cur = db.execute("PRAGMA table_info(users)")
     user_cols = [r['name'] for r in cur.fetchall()]
+    if 'last_login' not in user_cols:
+        db.execute("ALTER TABLE users ADD COLUMN last_login TEXT")
+        db.commit()
+
+    # Migration : fusionner display_name dans player_name
     if 'display_name' in user_cols:
         db.execute('''
             UPDATE users SET player_name = display_name
@@ -326,6 +331,9 @@ def login():
         user = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
 
         if user and check_password_hash(user['password_hash'], password):
+            db.execute('UPDATE users SET last_login = ? WHERE id = ?',
+                       (datetime.now(timezone.utc).isoformat(), user['id']))
+            db.commit()
             session['user_id'] = user['id']
             session['user_email'] = user['email']
             session['user_name'] = user['player_name'] or user['email']
@@ -392,6 +400,25 @@ def register():
                 flash(f'Un utilisateur avec un nom similaire existe déjà : {", ".join(similar_names)}. '
                       f'Ajoutez une distinction (ex: initiale du nom de famille).')
                 return render_template('register.html')
+
+        # Détecter si ce nom existe déjà comme joueur dans des groupes
+        player_match_confirmed = request.form.get('player_match_confirmed', '0')
+        if player_name and player_match_confirmed != '1':
+            existing_players = db.execute('''
+                SELECT pg.name as group_name,
+                       (SELECT MAX(g.created_at) FROM games g
+                        JOIN players p ON p.game_id = g.id
+                        WHERE g.group_id = gm.group_id AND p.name = gm.player_name
+                       ) as last_game
+                FROM group_members gm
+                JOIN player_groups pg ON pg.id = gm.group_id
+                WHERE gm.player_name = ? AND gm.user_id IS NULL
+            ''', (player_name,)).fetchall()
+            if existing_players:
+                return render_template('register.html',
+                    player_match=existing_players,
+                    form_email=email,
+                    form_player_name=player_name)
 
         # Créer le compte
         password_hash = generate_password_hash(password)
@@ -608,13 +635,7 @@ def index():
     # Get optional date filter from query params
     search_date = request.args.get('date')
 
-    # Récupérer les groupes de l'utilisateur
-    user_groups = db.execute('''
-        SELECT pg.id FROM player_groups pg
-        JOIN group_users gu ON pg.id = gu.group_id
-        WHERE gu.user_id = ?
-    ''', (user['id'],)).fetchall()
-    group_ids = [g['id'] for g in user_groups]
+    group_ids = get_user_group_ids(user)
 
     if search_date:
         # When searching by date, show all games for that date
@@ -751,16 +772,20 @@ def groups_list():
     user = get_current_user()
     db = get_db()
 
-    # Récupérer tous les groupes où l'utilisateur est membre
     groups = db.execute('''
-        SELECT pg.*, gu.role,
+        SELECT pg.*,
+               COALESCE(gu.role, 'player') as role,
                (SELECT COUNT(*) FROM group_members WHERE group_id = pg.id) as member_count,
                (SELECT COUNT(*) FROM games WHERE group_id = pg.id) as game_count
         FROM player_groups pg
-        JOIN group_users gu ON pg.id = gu.group_id
-        WHERE gu.user_id = ?
+        LEFT JOIN group_users gu ON pg.id = gu.group_id AND gu.user_id = ?
+        WHERE pg.id IN (
+            SELECT group_id FROM group_users WHERE user_id = ?
+            UNION
+            SELECT group_id FROM group_members WHERE user_id = ?
+        )
         ORDER BY pg.name
-    ''', (user['id'],)).fetchall()
+    ''', (user['id'], user['id'], user['id'])).fetchall()
 
     return render_template('groups.html', groups=groups, user=user)
 
@@ -943,13 +968,16 @@ def api_groups_suggest():
                 WHERE gm.group_id = pg.id AND gm.player_name IN ({placeholders})) as matching_members,
                (SELECT COUNT(*) FROM group_members WHERE group_id = pg.id) as total_members
         FROM player_groups pg
-        JOIN group_users gu ON pg.id = gu.group_id
-        WHERE gu.user_id = ?
+        WHERE pg.id IN (
+            SELECT group_id FROM group_users WHERE user_id = ?
+            UNION
+            SELECT group_id FROM group_members WHERE user_id = ?
+        )
         HAVING matching_members > 0
         ORDER BY matching_members DESC, total_members ASC
         LIMIT 5
     '''.format(placeholders=','.join('?' * len(player_names))),
-        (*player_names, user['id'])
+        (*player_names, user['id'], user['id'])
     ).fetchall()
 
     return jsonify([{
@@ -967,11 +995,12 @@ def api_group_members(group_id):
     user = get_current_user()
     db = get_db()
 
-    # Vérifier que l'utilisateur a accès au groupe
-    access = db.execute(
-        'SELECT 1 FROM group_users WHERE group_id = ? AND user_id = ?',
-        (group_id, user['id'])
-    ).fetchone()
+    # Vérifier que l'utilisateur a accès au groupe (gestionnaire ou joueur)
+    access = db.execute('''
+        SELECT 1 FROM group_users WHERE group_id = ? AND user_id = ?
+        UNION
+        SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?
+    ''', (group_id, user['id'], group_id, user['id'])).fetchone()
 
     if not access:
         return jsonify([])
@@ -992,36 +1021,16 @@ def new_game():
     cur = db.cursor()
     now = datetime.now(timezone.utc).isoformat()
 
-    # Récupérer les groupes de l'utilisateur
-    user_groups = db.execute('''
-        SELECT pg.id, pg.name
-        FROM player_groups pg
-        JOIN group_users gu ON pg.id = gu.group_id
-        WHERE gu.user_id = ?
-        ORDER BY pg.name
-    ''', (user['id'],)).fetchall()
+    group_ids = get_user_group_ids(user)
+    if not group_ids:
+        flash('Vous devez d\'abord créer ou rejoindre un groupe pour enregistrer une partie.')
+        return redirect('/skyjo/groups')
 
-    # Si l'utilisateur n'a pas de groupe, en créer un par défaut
-    if not user_groups:
-        default_name = f"Groupe de {user['player_name'] or user['email'].split('@')[0]}"
-        cur.execute(
-            'INSERT INTO player_groups (name, created_by, created_at) VALUES (?, ?, ?)',
-            (default_name, user['id'], now)
-        )
-        new_group_id = cur.lastrowid
-        cur.execute(
-            'INSERT INTO group_users (group_id, user_id, role) VALUES (?, ?, ?)',
-            (new_group_id, user['id'], 'owner')
-        )
-        db.commit()
-        # Recharger les groupes
-        user_groups = db.execute('''
-            SELECT pg.id, pg.name
-            FROM player_groups pg
-            JOIN group_users gu ON pg.id = gu.group_id
-            WHERE gu.user_id = ?
-            ORDER BY pg.name
-        ''', (user['id'],)).fetchall()
+    placeholders = ','.join('?' * len(group_ids))
+    user_groups = db.execute(
+        f'SELECT id, name FROM player_groups WHERE id IN ({placeholders}) ORDER BY name',
+        group_ids
+    ).fetchall()
 
     if request.method == 'POST':
         game_type = request.form.get('type') or 'Skyjo'
@@ -1360,10 +1369,13 @@ def stats_menu():
         user_groups = db.execute('''
             SELECT pg.id, pg.name
             FROM player_groups pg
-            JOIN group_users gu ON pg.id = gu.group_id
-            WHERE gu.user_id = ?
+            WHERE pg.id IN (
+                SELECT group_id FROM group_users WHERE user_id = ?
+                UNION
+                SELECT group_id FROM group_members WHERE user_id = ?
+            )
             ORDER BY pg.name
-        ''', (user['id'],)).fetchall()
+        ''', (user['id'], user['id'])).fetchall()
 
     # Si pas de groupes accessibles, retourner une page vide
     if not accessible_group_ids:
@@ -1449,10 +1461,13 @@ def stats_detail(game_type):
         user_groups = db.execute('''
             SELECT pg.id, pg.name
             FROM player_groups pg
-            JOIN group_users gu ON pg.id = gu.group_id
-            WHERE gu.user_id = ?
+            WHERE pg.id IN (
+                SELECT group_id FROM group_users WHERE user_id = ?
+                UNION
+                SELECT group_id FROM group_members WHERE user_id = ?
+            )
             ORDER BY pg.name
-        ''', (user['id'],)).fetchall()
+        ''', (user['id'], user['id'])).fetchall()
 
     # Si pas de groupes accessibles, retourner une page vide
     if not accessible_group_ids:
