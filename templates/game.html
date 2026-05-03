@@ -8,7 +8,7 @@
 </head>
 <body>
   <div class="page-content">
-  {% if game['finished'] %}
+  {% if game['finished'] and totals %}
     {% set winner = totals|dictsort(by='value')|first %}
     <div class="winner-badge">
       🏆 Gagnant : {{ winner[0] }}<br>
@@ -52,7 +52,7 @@
     <div style="text-align: center; margin: 20px 0;">
       <a href="/skyjo/new?type={{ game['type'] }}" class="button" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: inline-block; text-decoration: none;">➕ Nouvelle partie {{ game['type'] }}</a>
     </div>
-  {% else %}
+  {% elif can_edit %}
     <form method="post" id="submit-round-form" action="/skyjo/submit_round/{{ game['id'] }}">
     <div class="round-form-wrapper">
       <table class="round-form-table">
@@ -124,9 +124,11 @@
         {% endfor %}
         <td class="ts-col" data-label="Date">{% if r['timestamp'] %}{{ r['timestamp']|format_ts }}{% endif %}</td>
         <td class="edit-col">
+          {% if can_edit %}
           <button class="edit-round-btn" onclick="editRound({{ game['id'] }}, {{ r['round'] }}, this)" title="Modifier les scores">✏️</button>
           <button class="save-round-btn" onclick="saveRound({{ game['id'] }}, {{ r['round'] }}, this)" style="display:none;" title="Enregistrer">✓</button>
           <button class="cancel-round-btn" onclick="cancelEditRound(this)" style="display:none;" title="Annuler">✗</button>
+          {% endif %}
         </td>
       </tr>
     {% endfor %}
@@ -134,7 +136,7 @@
   </table>
   </div>
 
-  {% if not game['finished'] %}
+  {% if not game['finished'] and can_edit %}
   <form method="post" id="terminate-form" action="/skyjo/terminate/{{ game['id'] }}" onsubmit="return confirm('Confirmez-vous la fin de la partie ?');" style="margin-top: 30px; text-align: center;">
     <button type="submit" class="button" style="background: linear-gradient(135deg, #fc5c7d 0%, #6a82fb 100%);">🏁 Terminer la partie</button>
   </form>

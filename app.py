@@ -1201,7 +1201,14 @@ def game_view(game_id):
 
     rounds_matrix = [rounds_by_num[n] for n in sorted(rounds_by_num.keys())]
 
-    return render_template('game.html', game=game, players=player_names, totals=totals, rounds_matrix=rounds_matrix)
+    user = get_current_user()
+    if game['finished']:
+        can_edit = is_admin(user)
+    else:
+        can_edit = True
+
+    return render_template('game.html', game=game, players=player_names, totals=totals,
+                           rounds_matrix=rounds_matrix, can_edit=can_edit)
 
 @app.route('/submit_round/<int:game_id>', methods=['POST'])
 @require_auth
@@ -1212,7 +1219,7 @@ def submit_round(game_id):
         flash('Partie introuvable')
         return redirect('/skyjo/')
     if game['finished']:
-        flash('La partie est déjà terminée')
+        flash('La partie est terminée, les scores ne sont plus modifiables')
         return redirect(f"/skyjo/game/{game_id}")
 
     cur = db.execute('SELECT MAX(round_number) as m FROM rounds WHERE game_id=?', (game_id,)).fetchone()
@@ -1280,6 +1287,13 @@ def submit_round(game_id):
 @require_auth
 def terminate(game_id):
     db = get_db()
+    has_rounds = db.execute('SELECT 1 FROM rounds WHERE game_id=? LIMIT 1', (game_id,)).fetchone()
+    if not has_rounds:
+        db.execute('DELETE FROM players WHERE game_id=?', (game_id,))
+        db.execute('DELETE FROM games WHERE id=?', (game_id,))
+        db.commit()
+        flash('Partie vide supprimée.')
+        return redirect('/skyjo/')
     db.execute('UPDATE games SET finished=1 WHERE id=?', (game_id,))
     db.commit()
     flash('Partie terminée manuellement.')
@@ -1294,8 +1308,16 @@ def edit_round(game_id, round_number):
             return {'success': False, 'error': 'Données manquantes'}, 400
 
         scores = data['scores']
-        finisher = data.get('finisher', None)  # Peut être None ou une chaîne vide
+        finisher = data.get('finisher', None)
         db = get_db()
+
+        game = db.execute('SELECT * FROM games WHERE id=?', (game_id,)).fetchone()
+        if not game:
+            return {'success': False, 'error': 'Partie introuvable'}, 404
+
+        user = get_current_user()
+        if game['finished'] and not is_admin(user):
+            return {'success': False, 'error': 'Partie terminée, modification réservée à l\'admin'}, 403
 
         # Vérifier que le round existe
         existing = db.execute(
