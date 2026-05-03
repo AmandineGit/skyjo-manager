@@ -405,46 +405,52 @@ def register():
                       f'Ajoutez une distinction (ex: initiale du nom de famille).')
                 return render_template('register.html')
 
-        # Détecter si ce nom existe déjà comme joueur dans des groupes
+        # Détecter si ce nom existe déjà comme joueur dans des groupes (comparaison normalisée)
         player_match_confirmed = request.form.get('player_match_confirmed', '0')
+        canonical_player_name = player_name  # sera écrasé si match trouvé
         if player_name and player_match_confirmed != '1':
-            existing_players = db.execute('''
-                SELECT pg.name as group_name,
+            player_name_normalized = normalize_name(player_name)
+            all_members = db.execute('''
+                SELECT DISTINCT gm.player_name, pg.name as group_name,
                        (SELECT MAX(g.created_at) FROM games g
                         JOIN players p ON p.game_id = g.id
                         WHERE g.group_id = gm.group_id AND p.name = gm.player_name
                        ) as last_game
                 FROM group_members gm
                 JOIN player_groups pg ON pg.id = gm.group_id
-                WHERE gm.player_name = ? AND gm.user_id IS NULL
-            ''', (player_name,)).fetchall()
+                WHERE gm.user_id IS NULL
+            ''').fetchall()
+            existing_players = [r for r in all_members
+                                if normalize_name(r['player_name']) == player_name_normalized]
             if existing_players:
+                # Nom canonique = celui de la base (avec la bonne casse/accents)
+                canonical_player_name = existing_players[0]['player_name']
                 return render_template('register.html',
                     player_match=existing_players,
                     form_email=email,
-                    form_player_name=player_name)
+                    form_player_name=canonical_player_name)
 
-        # Créer le compte
+        # Créer le compte (avec le nom canonique issu de la base si match trouvé)
         password_hash = generate_password_hash(password)
         now = datetime.now(timezone.utc).isoformat()
         cur = db.cursor()
         cur.execute(
             'INSERT INTO users (email, password_hash, player_name, created_at) VALUES (?, ?, ?, ?)',
-            (email, password_hash, player_name or None, now)
+            (email, password_hash, canonical_player_name or None, now)
         )
         db.commit()
         new_user_id = cur.lastrowid
 
         # Rattacher l'historique des parties au nouveau compte
-        if player_name:
+        if canonical_player_name:
             db.execute(
                 'UPDATE group_members SET user_id = ? WHERE player_name = ? AND user_id IS NULL',
-                (new_user_id, player_name)
+                (new_user_id, canonical_player_name)
             )
             # Ajouter l'utilisateur dans group_users pour chaque groupe historique
             historic_groups = db.execute(
                 'SELECT DISTINCT group_id FROM group_members WHERE player_name = ?',
-                (player_name,)
+                (canonical_player_name,)
             ).fetchall()
             for row in historic_groups:
                 existing = db.execute(
@@ -461,7 +467,7 @@ def register():
         # Connexion automatique
         session['user_id'] = new_user_id
         session['user_email'] = email
-        session['user_name'] = player_name or email
+        session['user_name'] = canonical_player_name or email
         flash('Compte créé avec succès !')
         return redirect('/skyjo/')
 
