@@ -122,8 +122,9 @@
 
     <!-- Sélection du groupe -->
     <div class="group-selection">
+      {% if user_groups %}
       <label for="group_id"><strong>Groupe de joueurs</strong></label>
-      <select name="group_id" id="group_id" class="group-select" required>
+      <select name="group_id" id="group_id" class="group-select">
         <option value="" disabled {% if not default_group_id %}selected{% endif %}>-- Sélectionner un groupe --</option>
         {% for group in user_groups %}
         <option value="{{ group.id }}" {% if default_group_id and default_group_id|string == group.id|string %}selected{% endif %}>
@@ -132,12 +133,15 @@
         {% endfor %}
         <option value="new">+ Créer un nouveau groupe</option>
       </select>
+      {% else %}
+      <input type="hidden" id="group_id" name="group_id" value="">
+      {% endif %}
 
-      <div id="new-group-fields" class="new-group-fields">
-        <input type="hidden" name="create_new_group" id="create_new_group" value="">
+      <div id="new-group-fields" class="new-group-fields {% if not user_groups %}visible{% endif %}">
+        <input type="hidden" name="create_new_group" id="create_new_group" value="{% if not user_groups %}1{% endif %}">
         <div class="new-group-header">
-          <label for="new_group_name">Nom du nouveau groupe (optionnel)</label>
-          <button type="button" class="cancel-new-group">Annuler</button>
+          <label for="new_group_name">Nom du groupe <small>(optionnel)</small></label>
+          {% if user_groups %}<button type="button" class="cancel-new-group">Annuler</button>{% endif %}
         </div>
         <input type="text" name="new_group_name" id="new_group_name" class="form-input" placeholder="Ex: Famille, Collègues...">
         <small>Les joueurs seront automatiquement ajoutés au groupe</small>
@@ -146,7 +150,7 @@
 
     <label>Joueurs:</label>
     <div id="players-list">
-      <div class="player-input-wrapper"><input name="player_1" class="player-input" placeholder="Joueur 1" autocomplete="off"></div>
+      <div class="player-input-wrapper"><input name="player_1" class="player-input" placeholder="Joueur 1" autocomplete="off" value="{{ user.player_name or '' }}"></div>
       <div class="player-input-wrapper"><input name="player_2" class="player-input" placeholder="Joueur 2" autocomplete="off"></div>
       <div class="player-input-wrapper"><input name="player_3" class="player-input" placeholder="Joueur 3" autocomplete="off"></div>
       <div class="player-input-wrapper"><input name="player_4" class="player-input" placeholder="Joueur 4" autocomplete="off"></div>
@@ -293,7 +297,7 @@
       });
     }
 
-    groupSelect.addEventListener('change', function() {
+    if (groupSelect) groupSelect.addEventListener('change', function() {
       if (groupSelect.value === 'new') {
         // Mode création de groupe
         newGroupFields.classList.add('visible');
@@ -324,7 +328,7 @@
     });
 
     // Charger les membres si un groupe est présélectionné (via URL)
-    if (groupSelect.value && groupSelect.value !== '') {
+    if (groupSelect && groupSelect.value && groupSelect.value !== '') {
       lastValidGroupId = groupSelect.value;
       loadGroupMembers(groupSelect.value);
     }

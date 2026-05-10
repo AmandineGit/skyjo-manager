@@ -804,11 +804,8 @@ def groups_list():
 @app.route('/groups/new', methods=['GET', 'POST'])
 @require_auth
 def groups_new():
-    """Créer un nouveau groupe (admin uniquement)."""
+    """Créer un nouveau groupe."""
     user = get_current_user()
-    if not is_admin(user):
-        flash('Seul l\'administrateur peut créer des groupes')
-        return redirect('/skyjo/groups')
 
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
@@ -1031,21 +1028,20 @@ def new_game():
     now = datetime.now(timezone.utc).isoformat()
 
     group_ids = get_user_group_ids(user)
-    if not group_ids:
-        flash('Vous devez d\'abord créer ou rejoindre un groupe pour enregistrer une partie.')
-        return redirect('/skyjo/groups')
-
-    placeholders = ','.join('?' * len(group_ids))
-    user_groups = db.execute(
-        f'SELECT id, name FROM player_groups WHERE id IN ({placeholders}) ORDER BY name',
-        group_ids
-    ).fetchall()
+    if group_ids:
+        placeholders = ','.join('?' * len(group_ids))
+        user_groups = db.execute(
+            f'SELECT id, name FROM player_groups WHERE id IN ({placeholders}) ORDER BY name',
+            group_ids
+        ).fetchall()
+    else:
+        user_groups = []
 
     if request.method == 'POST':
         game_type = request.form.get('type') or 'Skyjo'
         comments = request.form.get('comments') or ''
         group_id = request.form.get('group_id')
-        create_new_group = request.form.get('create_new_group')
+        create_new_group = request.form.get('create_new_group') or (not user_groups and not group_id)
         new_group_name = request.form.get('new_group_name', '').strip()
 
         # Collect players from player_1..player_10 fields if present
