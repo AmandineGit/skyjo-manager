@@ -70,7 +70,7 @@ def require_auth(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('user_id'):
-            return redirect('/skyjo/login')
+            return redirect('/login')
         return f(*args, **kwargs)
     return decorated_function
 
@@ -317,7 +317,7 @@ def close_connection(exception):
 def get_totals(game_id):
     db = get_db()
     cur = db.execute(
-        'SELECT player_name, SUM(score) as total FROM rounds WHERE game_id=? GROUP BY player_name',
+        'SELECT player_name, SUM(score) as total FROM skyjo_rounds WHERE game_id=? GROUP BY player_name',
         (game_id,)
     )
     return {row['player_name']: row['total'] for row in cur.fetchall()}
@@ -416,8 +416,8 @@ def register():
             player_name_normalized = normalize_name(player_name)
             all_members = db.execute('''
                 SELECT DISTINCT gm.player_name, pg.name as group_name,
-                       (SELECT MAX(g.created_at) FROM games g
-                        JOIN players p ON p.game_id = g.id
+                       (SELECT MAX(g.created_at) FROM skyjo_games g
+                        JOIN skyjo_players p ON p.game_id = g.id
                         WHERE g.group_id = gm.group_id AND p.name = gm.player_name
                        ) as last_game
                 FROM group_members gm
@@ -483,7 +483,7 @@ def register():
 def logout():
     session.clear()
     flash('Vous avez été déconnecté')
-    return redirect('/skyjo/login')
+    return redirect('/login')
 
 
 # === HUB - Accueil commune ===
@@ -492,14 +492,7 @@ def logout():
 def hub():
     """Page d'accueil avec hub de jeux disponibles"""
     user = get_current_user()
-    db = get_db()
-    
-    # Stats globales de l'utilisateur
-    games_count = db.execute(
-        "SELECT COUNT(*) as cnt FROM skyjo_games WHERE id IN (SELECT game_id FROM skyjo_players WHERE player_name IN (SELECT player_name FROM skyjo_players WHERE game_id IN (SELECT id FROM skyjo_games WHERE group_id IN (?))))",
-        (user['id'],)
-    ).fetchone()['cnt'] if not is_admin(user) else 0
-    
+
     # Simplifié : juste compter les groupes accessibles
     group_ids = get_user_group_ids(user)
     groups_count = len(group_ids)
@@ -648,7 +641,7 @@ def reset_password(token):
 
     if not user:
         flash('Lien de réinitialisation invalide ou expiré')
-        return redirect('/skyjo/login')
+        return redirect('/login')
 
     # Vérifier l'expiration
     if user['reset_token_expires']:
@@ -673,7 +666,7 @@ def reset_password(token):
             )
             db.commit()
             flash('Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter.')
-            return redirect('/skyjo/login')
+            return redirect('/login')
 
     return render_template('reset_password.html', token=token)
 
@@ -693,12 +686,12 @@ def index():
         if group_ids:
             placeholders = ','.join('?' * len(group_ids))
             games = db.execute(
-                f'SELECT id, created_at, type, finished, group_id FROM games WHERE DATE(created_at) = ? AND (group_id IN ({placeholders}) OR created_by = ?) ORDER BY id DESC',
+                f'SELECT id, created_at, type, finished, group_id FROM skyjo_games WHERE DATE(created_at) = ? AND (group_id IN ({placeholders}) OR created_by = ?) ORDER BY id DESC',
                 (search_date, *group_ids, user['id'])
             ).fetchall()
         else:
             games = db.execute(
-                'SELECT id, created_at, type, finished, group_id FROM games WHERE DATE(created_at) = ? AND created_by = ? ORDER BY id DESC',
+                'SELECT id, created_at, type, finished, group_id FROM skyjo_games WHERE DATE(created_at) = ? AND created_by = ? ORDER BY id DESC',
                 (search_date, user['id'])
             ).fetchall()
     else:
@@ -706,12 +699,12 @@ def index():
         if group_ids:
             placeholders = ','.join('?' * len(group_ids))
             games = db.execute(
-                f'SELECT id, created_at, type, finished, group_id FROM games WHERE finished = 0 AND (group_id IN ({placeholders}) OR created_by = ?) ORDER BY id DESC',
+                f'SELECT id, created_at, type, finished, group_id FROM skyjo_games WHERE finished = 0 AND (group_id IN ({placeholders}) OR created_by = ?) ORDER BY id DESC',
                 (*group_ids, user['id'])
             ).fetchall()
         else:
             games = db.execute(
-                'SELECT id, created_at, type, finished, group_id FROM games WHERE finished = 0 AND created_by = ? ORDER BY id DESC',
+                'SELECT id, created_at, type, finished, group_id FROM skyjo_games WHERE finished = 0 AND created_by = ? ORDER BY id DESC',
                 (user['id'],)
             ).fetchall()
 
@@ -739,7 +732,7 @@ def search_players():
     db = get_db()
     # Récupère tous les noms de joueurs uniques
     all_players = db.execute(
-        'SELECT DISTINCT name FROM players ORDER BY name'
+        'SELECT DISTINCT name FROM skyjo_players ORDER BY name'
     ).fetchall()
 
     # Normalise la requête pour la comparaison
@@ -786,13 +779,13 @@ def check_player_duplicate():
         all_players = db.execute('''
             SELECT DISTINCT player_name as name FROM group_members WHERE group_id = ?
             UNION
-            SELECT DISTINCT name FROM players p
-            JOIN games g ON p.game_id = g.id
+            SELECT DISTINCT name FROM skyjo_players p
+            JOIN skyjo_games g ON p.game_id = g.id
             WHERE g.group_id = ?
         ''', (group_id, group_id)).fetchall()
     else:
         all_players = db.execute(
-            'SELECT DISTINCT name FROM players ORDER BY name'
+            'SELECT DISTINCT name FROM skyjo_players ORDER BY name'
         ).fetchall()
 
     # Trouver les noms qui ont la même normalisation
@@ -827,7 +820,7 @@ def groups_list():
         SELECT pg.*,
                COALESCE(gu.role, 'player') as role,
                (SELECT COUNT(*) FROM group_members WHERE group_id = pg.id) as member_count,
-               (SELECT COUNT(*) FROM games WHERE group_id = pg.id) as game_count
+               (SELECT COUNT(*) FROM skyjo_games WHERE group_id = pg.id) as game_count
         FROM player_groups pg
         LEFT JOIN group_users gu ON pg.id = gu.group_id AND gu.user_id = ?
         WHERE pg.id IN (
@@ -920,8 +913,8 @@ def group_detail(group_id):
     ''', (group_id,)).fetchall()
     games = db.execute('''
         SELECT g.*,
-               (SELECT GROUP_CONCAT(name) FROM players WHERE game_id = g.id) as player_names
-        FROM games g
+               (SELECT GROUP_CONCAT(name) FROM skyjo_players WHERE game_id = g.id) as player_names
+        FROM skyjo_games g
         WHERE g.group_id = ?
         ORDER BY g.created_at DESC
         LIMIT 10
@@ -1263,13 +1256,13 @@ def new_game():
 @require_auth
 def game_view(game_id):
     db = get_db()
-    game = db.execute('SELECT * FROM games WHERE id=?', (game_id,)).fetchone()
-    players = db.execute('SELECT name FROM players WHERE game_id=?', (game_id,)).fetchall()
+    game = db.execute('SELECT * FROM skyjo_games WHERE id=?', (game_id,)).fetchone()
+    players = db.execute('SELECT name FROM skyjo_players WHERE game_id=?', (game_id,)).fetchall()
     player_names = [p['name'] for p in players]
     totals = get_totals(game_id)
 
     # Récupère les rounds et regroupe par numéro de round en matrice
-    rows = db.execute('SELECT round_number, player_name, score, created_at, is_finisher FROM rounds WHERE game_id=? ORDER BY round_number, id', (game_id,)).fetchall()
+    rows = db.execute('SELECT round_number, player_name, score, created_at, is_finisher FROM skyjo_rounds WHERE game_id=? ORDER BY round_number, id', (game_id,)).fetchall()
     rounds_by_num = {}
     for r in rows:
         n = r['round_number']
@@ -1316,7 +1309,7 @@ def game_view(game_id):
 @require_auth
 def submit_round(game_id):
     db = get_db()
-    game = db.execute('SELECT * FROM games WHERE id=?', (game_id,)).fetchone()
+    game = db.execute('SELECT * FROM skyjo_games WHERE id=?', (game_id,)).fetchone()
     if not game:
         flash('Partie introuvable')
         return redirect('/skyjo/')
@@ -1324,9 +1317,9 @@ def submit_round(game_id):
         flash('La partie est terminée, les scores ne sont plus modifiables')
         return redirect(f"/skyjo/game/{game_id}")
 
-    cur = db.execute('SELECT MAX(round_number) as m FROM rounds WHERE game_id=?', (game_id,)).fetchone()
+    cur = db.execute('SELECT MAX(round_number) as m FROM skyjo_rounds WHERE game_id=?', (game_id,)).fetchone()
     next_round = (cur['m'] or 0) + 1
-    players = db.execute('SELECT name FROM players WHERE game_id=?', (game_id,)).fetchall()
+    players = db.execute('SELECT name FROM skyjo_players WHERE game_id=?', (game_id,)).fetchall()
 
     # Récupérer qui a terminé la manche
     finisher = request.form.get('finisher')
@@ -1378,7 +1371,7 @@ def submit_round(game_id):
     totals = get_totals(game_id)
     for total in totals.values():
         if total >= 100:
-            db.execute('UPDATE games SET finished=1 WHERE id=?', (game_id,))
+            db.execute('UPDATE skyjo_games SET finished=1 WHERE id=?', (game_id,))
             db.commit()
             flash('Un joueur a atteint 100 points — la partie est terminée.')
             break
@@ -1389,14 +1382,14 @@ def submit_round(game_id):
 @require_auth
 def terminate(game_id):
     db = get_db()
-    has_rounds = db.execute('SELECT 1 FROM rounds WHERE game_id=? LIMIT 1', (game_id,)).fetchone()
+    has_rounds = db.execute('SELECT 1 FROM skyjo_rounds WHERE game_id=? LIMIT 1', (game_id,)).fetchone()
     if not has_rounds:
-        db.execute('DELETE FROM players WHERE game_id=?', (game_id,))
-        db.execute('DELETE FROM games WHERE id=?', (game_id,))
+        db.execute('DELETE FROM skyjo_players WHERE game_id=?', (game_id,))
+        db.execute('DELETE FROM skyjo_games WHERE id=?', (game_id,))
         db.commit()
         flash('Partie vide supprimée.')
         return redirect('/skyjo/')
-    db.execute('UPDATE games SET finished=1 WHERE id=?', (game_id,))
+    db.execute('UPDATE skyjo_games SET finished=1 WHERE id=?', (game_id,))
     db.commit()
     flash('Partie terminée manuellement.')
     return redirect(f"/skyjo/game/{game_id}")
@@ -1409,9 +1402,9 @@ def delete_game(game_id):
         flash('Action réservée à l\'admin')
         return redirect(f"/skyjo/game/{game_id}")
     db = get_db()
-    db.execute('DELETE FROM rounds WHERE game_id=?', (game_id,))
-    db.execute('DELETE FROM players WHERE game_id=?', (game_id,))
-    db.execute('DELETE FROM games WHERE id=?', (game_id,))
+    db.execute('DELETE FROM skyjo_rounds WHERE game_id=?', (game_id,))
+    db.execute('DELETE FROM skyjo_players WHERE game_id=?', (game_id,))
+    db.execute('DELETE FROM skyjo_games WHERE id=?', (game_id,))
     db.commit()
     flash('Partie supprimée.')
     return redirect('/skyjo/')
@@ -1428,7 +1421,7 @@ def edit_round(game_id, round_number):
         finisher = data.get('finisher', None)
         db = get_db()
 
-        game = db.execute('SELECT * FROM games WHERE id=?', (game_id,)).fetchone()
+        game = db.execute('SELECT * FROM skyjo_games WHERE id=?', (game_id,)).fetchone()
         if not game:
             return {'success': False, 'error': 'Partie introuvable'}, 404
 
@@ -1438,7 +1431,7 @@ def edit_round(game_id, round_number):
 
         # Vérifier que le round existe
         existing = db.execute(
-            'SELECT COUNT(*) as cnt FROM rounds WHERE game_id=? AND round_number=?',
+            'SELECT COUNT(*) as cnt FROM skyjo_rounds WHERE game_id=? AND round_number=?',
             (game_id, round_number)
         ).fetchone()
 
@@ -1466,7 +1459,7 @@ def edit_round(game_id, round_number):
             is_finisher = 1 if player == finisher else 0
 
             db.execute(
-                'UPDATE rounds SET score=?, is_finisher=? WHERE game_id=? AND round_number=? AND player_name=?',
+                'UPDATE skyjo_rounds SET score=?, is_finisher=? WHERE game_id=? AND round_number=? AND player_name=?',
                 (final_score, is_finisher, game_id, round_number, player)
             )
 
@@ -1477,7 +1470,7 @@ def edit_round(game_id, round_number):
         should_finish = any(total >= 100 for total in totals.values())
 
         if should_finish:
-            db.execute('UPDATE games SET finished=1 WHERE id=?', (game_id,))
+            db.execute('UPDATE skyjo_games SET finished=1 WHERE id=?', (game_id,))
             db.commit()
 
         return {'success': True, 'finished': should_finish}
@@ -1499,7 +1492,7 @@ def admin_panel():
     groups = db.execute('''
         SELECT pg.*,
                (SELECT COUNT(*) FROM group_members WHERE group_id = pg.id) as member_count,
-               (SELECT COUNT(*) FROM games WHERE group_id = pg.id) as game_count
+               (SELECT COUNT(*) FROM skyjo_games WHERE group_id = pg.id) as game_count
         FROM player_groups pg ORDER BY pg.name
     ''').fetchall()
     return render_template('admin.html', users=users, groups=groups, user=user)
@@ -1609,7 +1602,7 @@ def stats_menu():
 
     # Récupérer tous les types de jeux qui ont été joués
     game_types = db.execute(f'''
-        SELECT DISTINCT g.type FROM games g
+        SELECT DISTINCT g.type FROM skyjo_games g
         WHERE g.type IS NOT NULL {group_filter}
         ORDER BY g.type
     ''', group_params).fetchall()
@@ -1620,13 +1613,13 @@ def stats_menu():
     rounds_count = {}
     for game_type in game_types:
         count_games = db.execute(f'''
-            SELECT COUNT(*) as cnt FROM games g WHERE g.type = ? {group_filter}
+            SELECT COUNT(*) as cnt FROM skyjo_games g WHERE g.type = ? {group_filter}
         ''', (game_type,) + group_params).fetchone()
         games_count[game_type] = count_games['cnt']
 
         count_rounds = db.execute(f'''
-            SELECT COUNT(*) as cnt FROM rounds
-            WHERE game_id IN (SELECT id FROM games g WHERE g.type = ? {group_filter})
+            SELECT COUNT(*) as cnt FROM skyjo_rounds
+            WHERE game_id IN (SELECT id FROM skyjo_games g WHERE g.type = ? {group_filter})
         ''', (game_type,) + group_params).fetchone()
         rounds_count[game_type] = count_rounds['cnt']
 
@@ -1705,8 +1698,8 @@ def stats_detail(game_type):
 
     # Récupérer uniquement les rounds des parties du type spécifié
     query = f'''
-        SELECT r.* FROM rounds r
-        INNER JOIN games g ON r.game_id = g.id
+        SELECT r.* FROM skyjo_rounds r
+        INNER JOIN skyjo_games g ON r.game_id = g.id
         WHERE g.type = ? {group_filter}
     '''
     df = pd.read_sql_query(query, db, params=(game_type,) + group_params)
@@ -1755,7 +1748,7 @@ def stats_detail(game_type):
 
     # Compter les parties et rounds totaux
     total_games = db.execute(f'''
-        SELECT COUNT(*) as cnt FROM games g WHERE g.type = ? {group_filter}
+        SELECT COUNT(*) as cnt FROM skyjo_games g WHERE g.type = ? {group_filter}
     ''', (game_type,) + group_params).fetchone()['cnt']
     total_rounds = len(df)
 
@@ -1768,14 +1761,14 @@ def stats_detail(game_type):
             SELECT finisher.player_name, COUNT(*) as doubled_count
             FROM (
                 SELECT r.game_id, r.round_number, r.player_name, r.score
-                FROM rounds r
-                INNER JOIN games g ON r.game_id = g.id
+                FROM skyjo_rounds r
+                INNER JOIN skyjo_games g ON r.game_id = g.id
                 WHERE g.type = ? AND r.is_finisher = 1 {group_filter}
             ) finisher
             INNER JOIN (
                 SELECT r.game_id, r.round_number, MIN(r.score) as min_score
-                FROM rounds r
-                INNER JOIN games g ON r.game_id = g.id
+                FROM skyjo_rounds r
+                INNER JOIN skyjo_games g ON r.game_id = g.id
                 WHERE g.type = ? {group_filter}
                 GROUP BY r.game_id, r.round_number
             ) mins ON finisher.game_id = mins.game_id
@@ -1848,8 +1841,8 @@ def player_stats(game_type, player_name):
 
     # Récupérer tous les rounds du joueur pour ce type de jeu
     query = f'''
-        SELECT r.* FROM rounds r
-        INNER JOIN games g ON r.game_id = g.id
+        SELECT r.* FROM skyjo_rounds r
+        INNER JOIN skyjo_games g ON r.game_id = g.id
         WHERE g.type = ? AND r.player_name = ? {group_filter}
     '''
     df = pd.read_sql_query(query, db, params=(game_type, player_name) + group_params)
@@ -1891,8 +1884,8 @@ def player_stats(game_type, player_name):
     # Trouver les 3 joueurs les plus fréquents (co-joueurs)
     # Récupérer toutes les parties où le joueur a participé (filtrées par groupes accessibles)
     games_query = f'''
-        SELECT DISTINCT r.game_id FROM rounds r
-        INNER JOIN games g ON r.game_id = g.id
+        SELECT DISTINCT r.game_id FROM skyjo_rounds r
+        INNER JOIN skyjo_games g ON r.game_id = g.id
         WHERE r.player_name = ? AND g.type = ? {group_filter}
     '''
     games_result = db.execute(games_query, (player_name, game_type) + group_params).fetchall()
@@ -1904,7 +1897,7 @@ def player_stats(game_type, player_name):
         placeholders = ','.join('?' * len(game_ids))
         coplayers_query = f'''
             SELECT player_name, COUNT(DISTINCT game_id) as game_count
-            FROM rounds
+            FROM skyjo_rounds
             WHERE game_id IN ({placeholders})
             AND player_name != ?
             GROUP BY player_name
@@ -1924,7 +1917,7 @@ def player_stats(game_type, player_name):
     first_game_date = None
     if game_ids:
         first_game_query = '''
-            SELECT created_at FROM games
+            SELECT created_at FROM skyjo_games
             WHERE id IN ({})
             ORDER BY created_at ASC
             LIMIT 1
