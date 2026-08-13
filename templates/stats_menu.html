@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Statistiques — Skyjo</title>
-  <link rel="stylesheet" href="/skyjo/static/style.css">
+  <link rel="stylesheet" href="/familyboardgame/static/style.css">
 </head>
 <body>
   <div class="page-content">
-  <a href="/skyjo/" class="button button-secondary" style="margin-bottom: 10px;">← Menu principal</a>
+  <a href="/familyboardgame/" class="button button-secondary" style="margin-bottom: 10px;">← Menu principal</a>
   <h1>Statistiques</h1>
 
   <!-- Sélecteur de groupe -->
@@ -36,7 +36,7 @@
 
   <div class="stats-menu-grid">
     {% for game_type in game_types %}
-    <a href="/skyjo/stats/{{ game_type }}{% if group_id %}?group={{ group_id }}{% endif %}" class="stats-card">
+    <a href="/familyboardgame/stats/{{ game_type }}{% if group_id %}?group={{ group_id }}{% endif %}" class="stats-card">
       <div class="stats-card-icon">
         {% if game_type == 'Skyjo' %}
           🎯
@@ -61,15 +61,15 @@
   </div>
   {% endif %}
 
-  <a href="/skyjo/" class="back-button">← Retour à l'accueil</a>
+  <a href="/familyboardgame/" class="back-button">← Retour à l'accueil</a>
   </div>
 
   <script>
   function filterByGroup(groupId) {
     if (groupId) {
-      window.location.href = '/skyjo/stats?group=' + groupId;
+      window.location.href = '/familyboardgame/stats?group=' + groupId;
     } else {
-      window.location.href = '/skyjo/stats';
+      window.location.href = '/familyboardgame/stats';
     }
   }
   </script>

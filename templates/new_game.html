@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nouvelle partie — Skyjo</title>
-  <link rel="stylesheet" href="/skyjo/static/style.css">
+  <link rel="stylesheet" href="/familyboardgame/static/style.css">
   <style>
     .player-input-wrapper {
       position: relative;
@@ -111,7 +111,7 @@
   </div>
 
   <!-- Formulaire caché au début -->
-  <form method="post" action="/skyjo/play/new" id="game-form" style="display: none;">
+  <form method="post" action="/skyjo/new" id="game-form" style="display: none;">
     <input type="hidden" name="type" id="game-type">
 
     <div style="margin-bottom: 20px;">
@@ -194,7 +194,7 @@
 
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(function() {
-          fetch('/skyjo/play/api/players/search?q=' + encodeURIComponent(query))
+          fetch('/skyjo/api/players/search?q=' + encodeURIComponent(query))
             .then(function(r) { return r.json(); })
             .then(function(players) {
               if (players.length === 0) return;
@@ -274,7 +274,7 @@
     function loadGroupMembers(groupId) {
       if (!groupId || groupId === 'new') return;
 
-      fetch('/skyjo/play/api/groups/' + groupId + '/members')
+      fetch('/skyjo/api/groups/' + groupId + '/members')
         .then(function(r) { return r.json(); })
         .then(function(members) {
           // Remplir les champs joueurs avec les membres du groupe
@@ -378,7 +378,7 @@
     rulesBtn.addEventListener('click', function() {
       var gameType = gameTypeInput.value;
       if (gameType && gameType !== '') {
-        var url = '/skyjo/rules/' + encodeURIComponent(gameType);
+        var url = '/familyboardgame/rules/' + encodeURIComponent(gameType);
         window.open(url, '_blank', 'width=800,height=600');
       }
     });
@@ -464,7 +464,7 @@
 
       clearTimeout(duplicateCheckTimeout);
       duplicateCheckTimeout = setTimeout(function() {
-        var url = '/skyjo/play/api/players/check-duplicate?name=' + encodeURIComponent(name);
+        var url = '/skyjo/api/players/check-duplicate?name=' + encodeURIComponent(name);
         if (groupId && groupId !== 'new') {
           url += '&group_id=' + groupId;
         }
@@ -532,7 +532,7 @@
         showTypeSelection();
       } else {
         // Sinon, retour à l'accueil
-        window.location.href = '/skyjo/play/';
+        window.location.href = '/skyjo/';
       }
     });
   });

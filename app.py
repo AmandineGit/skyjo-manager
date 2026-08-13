@@ -61,7 +61,7 @@ app.teardown_appcontext(close_db_connection)
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if session.get('user_id'):
-        return redirect('/skyjo/')
+        return redirect('/familyboardgame/')
 
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
@@ -77,7 +77,7 @@ def login():
             session['user_id'] = user['id']
             session['user_email'] = user['email']
             session['user_name'] = user['player_name'] or user['email']
-            return redirect('/skyjo/')
+            return redirect('/familyboardgame/')
         else:
             flash('Email ou mot de passe incorrect')
 
@@ -87,7 +87,7 @@ def login():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if session.get('user_id'):
-        return redirect('/skyjo/')
+        return redirect('/familyboardgame/')
 
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
@@ -210,7 +210,7 @@ def register():
         session['user_email'] = email
         session['user_name'] = canonical_player_name or email
         flash('Compte créé avec succès !')
-        return redirect('/skyjo/')
+        return redirect('/familyboardgame/')
 
     return render_template('register.html')
 
@@ -219,7 +219,7 @@ def register():
 def logout():
     session.clear()
     flash('Vous avez été déconnecté')
-    return redirect('/skyjo/login')
+    return redirect('/familyboardgame/login')
 
 
 # === HUB - Accueil commune ===
@@ -250,7 +250,7 @@ def hub():
             'name': 'Skyjo',
             'icon': '🎲',
             'description': 'Jeu de cartes avec stratégie et défausse',
-            'url': '/skyjo/play/',
+            'url': '/skyjo/',
         }
     ]
 
@@ -287,7 +287,7 @@ def profile():
                 if similar_names:
                     flash(f'Un utilisateur avec un nom similaire existe déjà : {", ".join(similar_names)}. '
                           f'Ajoutez une distinction (ex: initiale du nom).')
-                    return redirect('/skyjo/profile')
+                    return redirect('/familyboardgame/profile')
 
             db.execute(
                 'UPDATE users SET player_name = ? WHERE id = ?',
@@ -339,7 +339,7 @@ def profile():
                 db.commit()
                 flash('Mot de passe modifié avec succès')
 
-        return redirect('/skyjo/profile')
+        return redirect('/familyboardgame/profile')
 
     return render_template('profile.html', user=user)
 
@@ -363,7 +363,7 @@ def forgot_password():
             )
             db.commit()
 
-            reset_url = f"/skyjo/reset-password/{token}"
+            reset_url = f"/familyboardgame/reset-password/{token}"
 
             if DEV_MODE:
                 # En dev, afficher le lien dans un message flash
@@ -387,14 +387,14 @@ def reset_password(token):
 
     if not user:
         flash('Lien de réinitialisation invalide ou expiré')
-        return redirect('/skyjo/login')
+        return redirect('/familyboardgame/login')
 
     # Vérifier l'expiration
     if user['reset_token_expires']:
         expires = datetime.fromisoformat(user['reset_token_expires'])
         if datetime.now(timezone.utc) > expires:
             flash('Lien de réinitialisation expiré')
-            return redirect('/skyjo/forgot-password')
+            return redirect('/familyboardgame/forgot-password')
 
     if request.method == 'POST':
         new_password = request.form.get('new_password', '')
@@ -412,7 +412,7 @@ def reset_password(token):
             )
             db.commit()
             flash('Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter.')
-            return redirect('/skyjo/login')
+            return redirect('/familyboardgame/login')
 
     return render_template('reset_password.html', token=token)
 
@@ -483,7 +483,7 @@ def groups_new():
 
         db.commit()
         flash(f'Groupe "{name}" créé avec succès !')
-        return redirect(f'/skyjo/groups/{group_id}')
+        return redirect(f'/familyboardgame/groups/{group_id}')
 
     return render_template('group_new.html', user=user)
 
@@ -504,7 +504,7 @@ def group_detail(group_id):
 
     if not has_access:
         flash('Vous n\'avez pas accès à ce groupe')
-        return redirect('/skyjo/groups')
+        return redirect('/familyboardgame/groups')
 
     group = db.execute('SELECT * FROM player_groups WHERE id = ?', (group_id,)).fetchone()
     members = db.execute(
@@ -549,7 +549,7 @@ def group_edit(group_id):
 
     if not is_admin(user):
         flash('Seul l\'administrateur peut modifier les groupes')
-        return redirect(f'/skyjo/groups/{group_id}')
+        return redirect(f'/familyboardgame/groups/{group_id}')
 
     action = request.form.get('action')
 
@@ -598,7 +598,7 @@ def group_edit(group_id):
             else:
                 flash('Aucun utilisateur trouvé avec cet email')
 
-    return redirect(f'/skyjo/groups/{group_id}')
+    return redirect(f'/familyboardgame/groups/{group_id}')
 
 
 @app.route('/groups/<int:group_id>/rename', methods=['POST'])
@@ -612,7 +612,7 @@ def group_rename(group_id):
     group = db.execute('SELECT * FROM player_groups WHERE id = ?', (group_id,)).fetchone()
     if not group:
         flash('Groupe non trouvé')
-        return redirect('/skyjo/groups')
+        return redirect('/familyboardgame/groups')
     
     # Vérifier l'accès à ce groupe
     has_access = is_admin(user) or db.execute('''
@@ -623,7 +623,7 @@ def group_rename(group_id):
     
     if not has_access:
         flash('Vous n\'avez pas accès à ce groupe')
-        return redirect('/skyjo/groups')
+        return redirect('/familyboardgame/groups')
     
     # Vérifier la permission de renaming
     rename_permission = group['rename_permission'] or 'owner'
@@ -641,7 +641,7 @@ def group_rename(group_id):
     
     if not can_rename:
         flash('Vous n\'avez pas la permission de renommer ce groupe')
-        return redirect(f'/skyjo/groups/{group_id}')
+        return redirect(f'/familyboardgame/groups/{group_id}')
     
     # Renommer le groupe
     new_name = request.form.get('name', '').strip()
@@ -655,7 +655,7 @@ def group_rename(group_id):
     else:
         flash('Le nom du groupe ne peut pas être vide')
     
-    return redirect(f'/skyjo/groups/{group_id}')
+    return redirect(f'/familyboardgame/groups/{group_id}')
 
 @app.route('/admin')
 @require_auth
@@ -663,7 +663,7 @@ def admin_panel():
     user = get_current_user()
     if not is_admin(user):
         flash('Accès réservé à l\'administrateur')
-        return redirect('/skyjo/')
+        return redirect('/familyboardgame/')
     db = get_db()
     users = db.execute(
         'SELECT id, email, player_name, created_at, last_login FROM users ORDER BY created_at'
@@ -683,11 +683,11 @@ def admin_reset_password(user_id):
     current_user = get_current_user()
     if not is_admin(current_user):
         flash('Accès réservé à l\'administrateur')
-        return redirect('/skyjo/')
+        return redirect('/familyboardgame/')
     new_password = request.form.get('new_password', '').strip()
     if len(new_password) < 6:
         flash('Le mot de passe doit contenir au moins 6 caractères')
-        return redirect('/skyjo/admin')
+        return redirect('/familyboardgame/admin')
     db = get_db()
     db.execute(
         'UPDATE users SET password_hash = ? WHERE id = ?',
@@ -696,7 +696,7 @@ def admin_reset_password(user_id):
     db.commit()
     target = db.execute('SELECT email, player_name FROM users WHERE id = ?', (user_id,)).fetchone()
     flash(f'Mot de passe réinitialisé pour {target["player_name"] or target["email"]}')
-    return redirect('/skyjo/admin')
+    return redirect('/familyboardgame/admin')
 
 
 @app.route('/admin/users/<int:user_id>/set-name', methods=['POST'])
@@ -705,14 +705,14 @@ def admin_set_player_name(user_id):
     current_user = get_current_user()
     if not is_admin(current_user):
         flash('Accès réservé à l\'administrateur')
-        return redirect('/skyjo/')
+        return redirect('/familyboardgame/')
     player_name = request.form.get('player_name', '').strip()
     db = get_db()
     db.execute('UPDATE users SET player_name = ? WHERE id = ?',
                (player_name or None, user_id))
     db.commit()
     flash(f'Nom mis à jour')
-    return redirect('/skyjo/admin')
+    return redirect('/familyboardgame/admin')
 
 
 @app.route('/export')
@@ -723,7 +723,7 @@ def export_route():
         flash('Export effectué: ' + path)
     except Exception as e:
         flash('Erreur export: ' + str(e))
-    return redirect('/skyjo/')
+    return redirect('/familyboardgame/')
 
 @app.route('/stats')
 @require_auth
@@ -770,7 +770,7 @@ def stats_menu():
     if group_id:
         if int(group_id) not in accessible_group_ids:
             flash('Vous n\'avez pas accès à ce groupe')
-            return redirect('/skyjo/stats')
+            return redirect('/familyboardgame/stats')
         group_filter = " AND g.group_id = ?"
         group_params = (int(group_id),)
     else:
@@ -866,7 +866,7 @@ def stats_detail(game_type):
     if group_id:
         if int(group_id) not in accessible_group_ids:
             flash('Vous n\'avez pas accès à ce groupe')
-            return redirect(f'/skyjo/stats/{game_type}')
+            return redirect(f'/familyboardgame/stats/{game_type}')
         group_filter = " AND g.group_id = ?"
         group_params = (int(group_id),)
     else:
@@ -1003,13 +1003,13 @@ def player_stats(game_type, player_name):
     # Si pas de groupes accessibles, rediriger
     if not accessible_group_ids:
         flash('Aucune statistique disponible')
-        return redirect(f'/skyjo/stats/{game_type}')
+        return redirect(f'/familyboardgame/stats/{game_type}')
 
     # Construire la clause WHERE pour le filtre groupe
     if group_id:
         if int(group_id) not in accessible_group_ids:
             flash('Vous n\'avez pas accès à ce groupe')
-            return redirect(f'/skyjo/stats/{game_type}')
+            return redirect(f'/familyboardgame/stats/{game_type}')
         group_filter = " AND g.group_id = ?"
         group_params = (int(group_id),)
     else:
@@ -1028,7 +1028,7 @@ def player_stats(game_type, player_name):
 
     if df.empty:
         flash(f'Aucune statistique pour {player_name} en {game_type}')
-        redirect_url = f'/skyjo/stats/{game_type}'
+        redirect_url = f'/familyboardgame/stats/{game_type}'
         if group_id:
             redirect_url += f'?group={group_id}'
         return redirect(redirect_url)
@@ -1121,7 +1121,7 @@ def player_stats(game_type, player_name):
 
 @app.route('/images/<path:filename>')
 def image_file(filename):
-    # Serve project-level images placed in /var/www/skyjo/images
+    # Serve project-level images placed in /var/www/familyboardgame/images
     return send_from_directory(os.path.join(BASE_DIR, 'images'), filename)
 
 @app.route('/rules/<game_type>')
@@ -1133,10 +1133,12 @@ def get_rules(game_type):
     if rule and rule['rules_pdf']:
         return send_from_directory(os.path.join(BASE_DIR, 'images'), rule['rules_pdf'])
     flash('Règles non disponibles pour ce type de jeu')
-    return redirect('/skyjo/')
+    return redirect('/familyboardgame/')
 
-# Application WSGI entrypoint. Routes communes (hub, login, groups, admin, stats...) à la racine,
-# routes Skyjo sous /skyjo/ via skyjo_bp. Apache proxifie / et /skyjo/ vers cette même app sans retirer le préfixe.
+# Application WSGI entrypoint. Routes communes (hub, login, groups, admin, stats...) à la racine
+# Flask, exposées via /familyboardgame/ (Apache retire ce préfixe avant de transmettre).
+# Routes Skyjo (skyjo_bp, préfixe interne /play) exposées via /skyjo/
+# (Apache réécrit /skyjo/... -> gunicorn /play/...).
 application = app
 
 if __name__ == '__main__':

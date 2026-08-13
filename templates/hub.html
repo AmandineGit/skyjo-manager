@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Family board games - Accueil</title>
-    <link rel="stylesheet" href="/skyjo/static/style.css">
+    <link rel="stylesheet" href="/familyboardgame/static/style.css">
     <style>
         .hub-container {
             max-width: 1200px;
@@ -101,6 +101,10 @@
         .btn-play:hover {
             background: #0056b3;
         }
+        /* Page multi-jeux générique : pas de bandeau publicitaire Skyjo */
+        body::before {
+            content: none;
+        }
     </style>
 </head>
 <body>
@@ -109,10 +113,10 @@
             <div></div>
             <div class="user-menu">
                 {% if session.get('user_email') == 'admin@skyjo.local' %}
-                <a href="/skyjo/admin" class="button button-secondary" style="margin: 0;">⚙ Admin</a>
+                <a href="/familyboardgame/admin" class="button button-secondary" style="margin: 0;">⚙ Admin</a>
                 {% endif %}
-                <a href="/skyjo/profile" class="button button-secondary" style="margin: 0;">👤 {{ session.get('user_name', 'Profil') }}</a>
-                <a href="/skyjo/logout" class="button button-danger" style="margin: 0;">Déconnexion</a>
+                <a href="/familyboardgame/profile" class="button button-secondary" style="margin: 0;">👤 {{ session.get('user_name', 'Profil') }}</a>
+                <a href="/familyboardgame/logout" class="button button-danger" style="margin: 0;">Déconnexion</a>
             </div>
         </div>
 
@@ -134,11 +138,11 @@
         </div>
 
         <div class="home-actions">
-            <a href="/skyjo/groups" class="home-action-btn">
+            <a href="/familyboardgame/groups" class="home-action-btn">
                 <span class="action-icon">👥</span>
                 <span class="action-text">Mes groupes</span>
             </a>
-            <a href="/skyjo/stats" class="home-action-btn">
+            <a href="/familyboardgame/stats" class="home-action-btn">
                 <span class="action-icon">📊</span>
                 <span class="action-text">Statistiques</span>
             </a>

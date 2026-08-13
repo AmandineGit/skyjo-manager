@@ -64,7 +64,7 @@ body {
     transform: translateX(-50%);
     width: 600px;
     height: 200px;
-    background-image: url('/skyjo/images/article-skyjo-bandeau-bis.webp');
+    background-image: url('/familyboardgame/images/article-skyjo-bandeau-bis.webp');
     background-size: contain;
     background-position: center;
     background-repeat: no-repeat;
@@ -83,7 +83,7 @@ body {
     width: 117%;
     max-width: 650px;
     height: 195px;
-    background-image: url('/skyjo/images/article-skyjo-bandeau-bis.webp');
+    background-image: url('/familyboardgame/images/article-skyjo-bandeau-bis.webp');
     background-size: contain;
     background-position: center;
     background-repeat: no-repeat;

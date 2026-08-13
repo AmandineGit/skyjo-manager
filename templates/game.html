@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Partie #{{ game['id'] }} — Skyjo</title>
-  <link rel="stylesheet" href="/skyjo/static/style.css">
+  <link rel="stylesheet" href="/familyboardgame/static/style.css">
 </head>
 <body>
   <div class="page-content">
@@ -25,7 +25,7 @@
     {% endif %}
   </p>
   <div style="margin-bottom: 30px;">
-    <button type="button" class="button button-rules" onclick="window.open('/skyjo/rules/' + encodeURIComponent('{{ game['type'] }}'), '_blank', 'width=800,height=600')">Voir les règles</button>
+    <button type="button" class="button button-rules" onclick="window.open('/familyboardgame/rules/' + encodeURIComponent('{{ game['type'] }}'), '_blank', 'width=800,height=600')">Voir les règles</button>
   </div>
 
   <!-- Tuile Score total -->
@@ -50,11 +50,11 @@
   {% if game['finished'] %}
     <p style="text-align: center; color: #e74c3c; font-weight: 600; font-size: 1.1rem; margin: 30px 0;">🏁 La partie est terminée</p>
     <div style="text-align: center; margin: 20px 0;">
-      <a href="/skyjo/play/new?type={{ game['type'] }}" class="button" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: inline-block; text-decoration: none;">➕ Nouvelle partie {{ game['type'] }}</a>
-      <a href="/skyjo/play/" class="button button-secondary" style="display: inline-block; text-decoration: none;">← Retour à l'accueil</a>
+      <a href="/skyjo/new?type={{ game['type'] }}" class="button" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: inline-block; text-decoration: none;">➕ Nouvelle partie {{ game['type'] }}</a>
+      <a href="/skyjo/" class="button button-secondary" style="display: inline-block; text-decoration: none;">← Retour à l'accueil</a>
     </div>
   {% elif can_edit %}
-    <form method="post" id="submit-round-form" action="/skyjo/play/submit_round/{{ game['id'] }}">
+    <form method="post" id="submit-round-form" action="/skyjo/submit_round/{{ game['id'] }}">
     <div class="round-form-wrapper">
       <table class="round-form-table">
         <thead>
@@ -138,15 +138,15 @@
   </div>
 
   {% if not game['finished'] and can_edit %}
-  <form method="post" id="terminate-form" action="/skyjo/play/terminate/{{ game['id'] }}" onsubmit="return confirm('Confirmez-vous la fin de la partie ?');" style="margin-top: 30px; text-align: center;">
+  <form method="post" id="terminate-form" action="/skyjo/terminate/{{ game['id'] }}" onsubmit="return confirm('Confirmez-vous la fin de la partie ?');" style="margin-top: 30px; text-align: center;">
     <button type="submit" class="button" style="background: linear-gradient(135deg, #fc5c7d 0%, #6a82fb 100%);">🏁 Terminer la partie</button>
   </form>
   {% endif %}
 
-  <a href="/skyjo/play/" class="back-button">← Retour à l'accueil</a>
+  <a href="/skyjo/" class="back-button">← Retour à l'accueil</a>
 
   {% if is_admin %}
-  <form method="post" action="/skyjo/play/delete_game/{{ game['id'] }}" onsubmit="return confirm('Supprimer définitivement cette partie ?');" style="margin-top: 20px; text-align: center;">
+  <form method="post" action="/skyjo/delete_game/{{ game['id'] }}" onsubmit="return confirm('Supprimer définitivement cette partie ?');" style="margin-top: 20px; text-align: center;">
     <button type="submit" class="button button-danger">🗑 Supprimer la partie</button>
   </form>
   {% endif %}
@@ -367,7 +367,7 @@ function saveRound(gameId, roundNum, btn) {
   if (!confirm(message)) return;
 
   // Envoyer la requête AJAX
-  fetch(`/skyjo/play/edit_round/${gameId}/${roundNum}`, {
+  fetch(`/skyjo/edit_round/${gameId}/${roundNum}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
