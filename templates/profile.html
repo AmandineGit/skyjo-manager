@@ -4,10 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mon profil — Skyjo</title>
-  <link rel="stylesheet" href="/skyjo/static/style.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   <div class="page-content">
+    <a href="/" class="button button-secondary" style="margin-bottom: 10px;">← Menu principal</a>
     <h1>Mon profil</h1>
 
     {% with messages = get_flashed_messages() %}
@@ -91,8 +92,8 @@
     </div>
 
     <div class="profile-actions">
-      <a href="/skyjo/" class="button button-secondary">← Retour à l'accueil</a>
-      <a href="/skyjo/logout" class="button button-danger">Déconnexion</a>
+      <a href="/" class="button button-secondary">← Retour à l'accueil</a>
+      <a href="/logout" class="button button-danger">Déconnexion</a>
     </div>
   </div>
 </body>

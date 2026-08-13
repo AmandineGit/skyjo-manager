@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Partie #{{ game['id'] }} — Skyjo</title>
-  <link rel="stylesheet" href="/skyjo/static/style.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   <div class="page-content">
@@ -25,7 +25,7 @@
     {% endif %}
   </p>
   <div style="margin-bottom: 30px;">
-    <button type="button" class="button button-rules" onclick="window.open('/skyjo/rules/' + encodeURIComponent('{{ game['type'] }}'), '_blank', 'width=800,height=600')">Voir les règles</button>
+    <button type="button" class="button button-rules" onclick="window.open('/rules/' + encodeURIComponent('{{ game['type'] }}'), '_blank', 'width=800,height=600')">Voir les règles</button>
   </div>
 
   <!-- Tuile Score total -->
@@ -51,6 +51,7 @@
     <p style="text-align: center; color: #e74c3c; font-weight: 600; font-size: 1.1rem; margin: 30px 0;">🏁 La partie est terminée</p>
     <div style="text-align: center; margin: 20px 0;">
       <a href="/skyjo/new?type={{ game['type'] }}" class="button" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: inline-block; text-decoration: none;">➕ Nouvelle partie {{ game['type'] }}</a>
+      <a href="/skyjo/" class="button button-secondary" style="display: inline-block; text-decoration: none;">← Retour à l'accueil</a>
     </div>
   {% elif can_edit %}
     <form method="post" id="submit-round-form" action="/skyjo/submit_round/{{ game['id'] }}">

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nouvelle partie — Skyjo</title>
-  <link rel="stylesheet" href="/skyjo/static/style.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <style>
     .player-input-wrapper {
       position: relative;
@@ -378,7 +378,7 @@
     rulesBtn.addEventListener('click', function() {
       var gameType = gameTypeInput.value;
       if (gameType && gameType !== '') {
-        var url = '/skyjo/rules/' + encodeURIComponent(gameType);
+        var url = '/rules/' + encodeURIComponent(gameType);
         window.open(url, '_blank', 'width=800,height=600');
       }
     });

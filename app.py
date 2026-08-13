@@ -9,14 +9,12 @@ Architecture multi-jeux (Phase 1):
 """
 
 import os
-import sqlite3
-import unicodedata
 import secrets
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 
 from flask import (
-    Flask, g, render_template, request, redirect,
+    Flask, render_template, request, redirect,
     url_for, flash, send_from_directory, session, jsonify
 )
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -35,7 +33,6 @@ from export_to_onedrive import export_all_to_onedrive
 # =============================================================================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, 'skyjo.db')
 DEV_MODE = os.environ.get('FLASK_ENV', 'development') == 'development'
 
 app = Flask(__name__)
@@ -47,260 +44,11 @@ app.jinja_env.filters['format_ts'] = format_ts
 app.jinja_env.filters['format_date_fr'] = format_date_fr
 
 # =============================================================================
-# UTILITAIRES
-# =============================================================================
-
-
-def normalize_name(name):
-    """
-    Normalise un nom en retirant les accents pour la comparaison.
-    Utilisé pour suggérer des noms existants similaires.
-    Ex: 'Hélène' -> 'helene', 'François' -> 'francois'
-    """
-    if not name:
-        return name
-    normalized = unicodedata.normalize('NFD', name)
-    return ''.join(c for c in normalized if unicodedata.category(c) != 'Mn').lower()
-
-
-# =============================================================================
-# AUTHENTIFICATION
-# =============================================================================
-def require_auth(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not session.get('user_id'):
-            return redirect('/login')
-        return f(*args, **kwargs)
-    return decorated_function
-
-
-def get_current_user():
-    """Récupère l'utilisateur connecté depuis la session."""
-    user_id = session.get('user_id')
-    if not user_id:
-        return None
-    db = get_db()
-    return db.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
-
-
-def is_admin(user):
-    """Vérifie si l'utilisateur est l'administrateur."""
-    if not user:
-        return False
-    return user['email'] == 'admin@skyjo.local'
-
-
-def get_user_group_ids(user):
-    """
-    Récupère les IDs des groupes accessibles par l'utilisateur :
-    ceux où il est gestionnaire (group_users) ET ceux où il est joueur (group_members).
-    """
-    db = get_db()
-    if is_admin(user):
-        groups = db.execute('SELECT id FROM player_groups').fetchall()
-    else:
-        groups = db.execute('''
-            SELECT id FROM player_groups WHERE id IN (
-                SELECT group_id FROM group_users WHERE user_id = ?
-                UNION
-                SELECT group_id FROM group_members WHERE user_id = ?
-            )
-        ''', (user['id'], user['id'])).fetchall()
-    return [g['id'] for g in groups]
-
-
-# =============================================================================
-# FILTRES JINJA
-# =============================================================================
-
-
-def format_ts(value):
-    """Formate un timestamp ISO en 'DD/MM/YYYY à HHhMM'."""
-    if not value:
-        return ''
-    try:
-        dt = datetime.fromisoformat(value)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        dt = dt.astimezone(timezone.utc)
-        # Format: 11/01/2026 à 18h05
-        return dt.strftime('%d/%m/%Y à %Hh%M')
-    except Exception:
-        return value
-
-def format_date_fr(value):
-    """Formate une date ISO en 'DD mois YYYY' en français."""
-    if not value:
-        return ''
-    try:
-        dt = datetime.fromisoformat(value)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        dt = dt.astimezone(timezone.utc)
-        months = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-                  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
-        return f"{dt.day} {months[dt.month - 1]} {dt.year}"
-    except Exception:
-        return value
-
-
-app.jinja_env.filters['format_ts'] = format_ts
-app.jinja_env.filters['format_date_fr'] = format_date_fr
-
-
-# =============================================================================
 # BASE DE DONNÉES
 # =============================================================================
+# get_db, init_db, normalize_name, format_ts, format_date_fr : importés de core.db
+# require_auth, get_current_user, is_admin, get_user_group_ids : importés de core.auth
 
-
-def get_db():
-    db = getattr(g, '_database', None)
-    if db is None:
-        db = g._database = sqlite3.connect(DB_PATH)
-        db.row_factory = sqlite3.Row
-    return db
-
-def init_db(reset=False):
-    """
-    Initialise la base de données.
-    Si reset=True, supprime toutes les données (mode test).
-    """
-    db = get_db()
-    cur = db.cursor()
-
-    if reset:
-        # Mode test : supprimer toutes les tables existantes
-        cur.executescript('''
-        DROP TABLE IF EXISTS group_users;
-        DROP TABLE IF EXISTS group_members;
-        DROP TABLE IF EXISTS player_groups;
-        DROP TABLE IF EXISTS rounds;
-        DROP TABLE IF EXISTS players;
-        DROP TABLE IF EXISTS games;
-        DROP TABLE IF EXISTS users;
-        DROP TABLE IF EXISTS game_rules;
-        ''')
-        db.commit()
-
-    # Créer les tables
-    cur.executescript('''
-    -- Utilisateurs
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY,
-        email TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        display_name TEXT,
-        player_name TEXT,
-        created_at TEXT,
-        reset_token TEXT,
-        reset_token_expires TEXT
-    );
-
-    -- Groupes de joueurs
-    CREATE TABLE IF NOT EXISTS player_groups (
-        id INTEGER PRIMARY KEY,
-        name TEXT,
-        created_by INTEGER,
-        created_at TEXT,
-        FOREIGN KEY (created_by) REFERENCES users(id)
-    );
-
-    -- Membres d'un groupe (joueurs)
-    CREATE TABLE IF NOT EXISTS group_members (
-        id INTEGER PRIMARY KEY,
-        group_id INTEGER,
-        player_name TEXT,
-        user_id INTEGER,
-        FOREIGN KEY (group_id) REFERENCES player_groups(id),
-        FOREIGN KEY (user_id) REFERENCES users(id)
-    );
-
-    -- Utilisateurs ayant accès à un groupe (partage)
-    CREATE TABLE IF NOT EXISTS group_users (
-        id INTEGER PRIMARY KEY,
-        group_id INTEGER,
-        user_id INTEGER,
-        role TEXT DEFAULT 'member',
-        FOREIGN KEY (group_id) REFERENCES player_groups(id),
-        FOREIGN KEY (user_id) REFERENCES users(id)
-    );
-
-    -- Parties
-    CREATE TABLE IF NOT EXISTS games (
-        id INTEGER PRIMARY KEY,
-        created_at TEXT,
-        type TEXT,
-        comments TEXT,
-        finished INTEGER DEFAULT 0,
-        group_id INTEGER,
-        created_by INTEGER,
-        FOREIGN KEY (group_id) REFERENCES player_groups(id),
-        FOREIGN KEY (created_by) REFERENCES users(id)
-    );
-
-    -- Joueurs d'une partie
-    CREATE TABLE IF NOT EXISTS players (
-        id INTEGER PRIMARY KEY,
-        game_id INTEGER,
-        name TEXT,
-        FOREIGN KEY (game_id) REFERENCES games(id)
-    );
-
-    -- Rounds (manches)
-    CREATE TABLE IF NOT EXISTS rounds (
-        id INTEGER PRIMARY KEY,
-        game_id INTEGER,
-        round_number INTEGER,
-        player_name TEXT,
-        score INTEGER,
-        created_at TEXT,
-        is_finisher INTEGER DEFAULT 0,
-        FOREIGN KEY (game_id) REFERENCES games(id)
-    );
-
-    -- Règles des jeux
-    CREATE TABLE IF NOT EXISTS game_rules (
-        id INTEGER PRIMARY KEY,
-        game_type TEXT UNIQUE,
-        rules_pdf TEXT
-    );
-    ''')
-    db.commit()
-
-    # Migration : ajouter group_id et created_by à games si manquants
-    cur = db.execute("PRAGMA table_info(games)")
-    cols = [r['name'] for r in cur.fetchall()]
-    if 'group_id' not in cols:
-        db.execute("ALTER TABLE games ADD COLUMN group_id INTEGER")
-        db.commit()
-    if 'created_by' not in cols:
-        db.execute("ALTER TABLE games ADD COLUMN created_by INTEGER")
-        db.commit()
-
-    # Migration : ajouter last_login à users si manquant
-    cur = db.execute("PRAGMA table_info(users)")
-    user_cols = [r['name'] for r in cur.fetchall()]
-    if 'last_login' not in user_cols:
-        db.execute("ALTER TABLE users ADD COLUMN last_login TEXT")
-        db.commit()
-
-    # Migration : fusionner display_name dans player_name
-    if 'display_name' in user_cols:
-        db.execute('''
-            UPDATE users SET player_name = display_name
-            WHERE player_name IS NULL AND display_name IS NOT NULL
-        ''')
-        db.commit()
-
-    # Initialize default game rules
-    cur = db.execute("SELECT COUNT(*) as cnt FROM game_rules")
-    if cur.fetchone()['cnt'] == 0:
-        db.execute("INSERT INTO game_rules (game_type, rules_pdf) VALUES (?, ?)",
-                   ('Skyjo', '88-skyjo-regle.pdf'))
-        db.execute("INSERT INTO game_rules (game_type, rules_pdf) VALUES (?, ?)",
-                   ('Skyjo Action', '88-skyjo-regle.pdf'))
-        db.commit()
 
 # Ensure DB schema exists at import time (works with Flask 3 and Gunicorn boots)
 # En mode dev, on peut réinitialiser la base avec RESET_DB=1
@@ -308,19 +56,7 @@ with app.app_context():
     reset_db = os.environ.get('RESET_DB', '0') == '1'
     init_db(reset=reset_db)
 
-@app.teardown_appcontext
-def close_connection(exception):
-    db = getattr(g, '_database', None)
-    if db is not None:
-        db.close()
-
-def get_totals(game_id):
-    db = get_db()
-    cur = db.execute(
-        'SELECT player_name, SUM(score) as total FROM skyjo_rounds WHERE game_id=? GROUP BY player_name',
-        (game_id,)
-    )
-    return {row['player_name']: row['total'] for row in cur.fetchall()}
+app.teardown_appcontext(close_db_connection)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -492,11 +228,23 @@ def logout():
 def hub():
     """Page d'accueil avec hub de jeux disponibles"""
     user = get_current_user()
+    db = get_db()
 
-    # Simplifié : juste compter les groupes accessibles
     group_ids = get_user_group_ids(user)
-    groups_count = len(group_ids)
-    
+
+    # Nombre total de parties Skyjo accessibles à l'utilisateur
+    if group_ids:
+        placeholders = ','.join('?' * len(group_ids))
+        total_games = db.execute(
+            f'SELECT COUNT(*) as cnt FROM skyjo_games WHERE group_id IN ({placeholders}) OR created_by = ?',
+            (*group_ids, user['id'])
+        ).fetchone()['cnt']
+    else:
+        total_games = db.execute(
+            'SELECT COUNT(*) as cnt FROM skyjo_games WHERE created_by = ?',
+            (user['id'],)
+        ).fetchone()['cnt']
+
     games_list = [
         {
             'name': 'Skyjo',
@@ -505,13 +253,11 @@ def hub():
             'url': '/skyjo/',
         }
     ]
-    
+
     stats = {
-        'total_games': 0,
-        'total_rounds': 0,
-        'groups_count': groups_count,
+        'total_games': total_games,
     }
-    
+
     return render_template('hub.html', user=user, games=games_list, stats=stats)
 
 
@@ -669,145 +415,6 @@ def reset_password(token):
             return redirect('/login')
 
     return render_template('reset_password.html', token=token)
-
-@app.route('/')
-@require_auth
-def index():
-    db = get_db()
-    user = get_current_user()
-
-    # Get optional date filter from query params
-    search_date = request.args.get('date')
-
-    group_ids = get_user_group_ids(user)
-
-    if search_date:
-        # When searching by date, show all games for that date
-        if group_ids:
-            placeholders = ','.join('?' * len(group_ids))
-            games = db.execute(
-                f'SELECT id, created_at, type, finished, group_id FROM skyjo_games WHERE DATE(created_at) = ? AND (group_id IN ({placeholders}) OR created_by = ?) ORDER BY id DESC',
-                (search_date, *group_ids, user['id'])
-            ).fetchall()
-        else:
-            games = db.execute(
-                'SELECT id, created_at, type, finished, group_id FROM skyjo_games WHERE DATE(created_at) = ? AND created_by = ? ORDER BY id DESC',
-                (search_date, user['id'])
-            ).fetchall()
-    else:
-        # Default: show only ongoing games
-        if group_ids:
-            placeholders = ','.join('?' * len(group_ids))
-            games = db.execute(
-                f'SELECT id, created_at, type, finished, group_id FROM skyjo_games WHERE finished = 0 AND (group_id IN ({placeholders}) OR created_by = ?) ORDER BY id DESC',
-                (*group_ids, user['id'])
-            ).fetchall()
-        else:
-            games = db.execute(
-                'SELECT id, created_at, type, finished, group_id FROM skyjo_games WHERE finished = 0 AND created_by = ? ORDER BY id DESC',
-                (user['id'],)
-            ).fetchall()
-
-    # Ensure created_at is formatted server-side
-    games_list = []
-    for g in games:
-        gd = dict(g)
-        gd['created_display'] = format_date_fr(gd.get('created_at'))
-        games_list.append(gd)
-
-    return render_template('index.html', games=games_list, search_date=search_date, user=user)
-
-
-@app.route('/api/players/search')
-@require_auth
-def search_players():
-    """
-    API pour rechercher des joueurs existants.
-    Retourne les noms similaires (avec/sans accents) pour l'autocomplétion.
-    """
-    query = request.args.get('q', '').strip()
-    if not query:
-        return jsonify([])
-
-    db = get_db()
-    # Récupère tous les noms de joueurs uniques
-    all_players = db.execute(
-        'SELECT DISTINCT name FROM skyjo_players ORDER BY name'
-    ).fetchall()
-
-    # Normalise la requête pour la comparaison
-    query_normalized = normalize_name(query)
-
-    # Trouve les correspondances (comparaison sans accents)
-    matches = []
-    for row in all_players:
-        name = row['name']
-        if query_normalized in normalize_name(name):
-            matches.append(name)
-
-    return jsonify(matches[:10])  # Limite à 10 suggestions
-
-
-@app.route('/api/players/check-duplicate')
-@require_auth
-def check_player_duplicate():
-    """
-    API pour vérifier si un nom de joueur existe déjà (avec ou sans accents).
-    Utilisé pour alerter l'utilisateur avant de créer un doublon.
-
-    Params:
-        name: Le nom à vérifier
-        group_id: (optionnel) ID du groupe pour limiter la recherche
-
-    Returns:
-        JSON avec:
-        - exists: True si un nom similaire existe
-        - similar_names: Liste des noms similaires trouvés
-        - message: Message à afficher à l'utilisateur
-    """
-    name = request.args.get('name', '').strip()
-    group_id = request.args.get('group_id')
-
-    if not name:
-        return jsonify({'exists': False, 'similar_names': [], 'message': ''})
-
-    db = get_db()
-    name_normalized = normalize_name(name)
-
-    # Chercher les noms similaires dans tous les joueurs ou dans un groupe spécifique
-    if group_id:
-        all_players = db.execute('''
-            SELECT DISTINCT player_name as name FROM group_members WHERE group_id = ?
-            UNION
-            SELECT DISTINCT name FROM skyjo_players p
-            JOIN skyjo_games g ON p.game_id = g.id
-            WHERE g.group_id = ?
-        ''', (group_id, group_id)).fetchall()
-    else:
-        all_players = db.execute(
-            'SELECT DISTINCT name FROM skyjo_players ORDER BY name'
-        ).fetchall()
-
-    # Trouver les noms qui ont la même normalisation
-    similar_names = []
-    for row in all_players:
-        existing_name = row['name']
-        if normalize_name(existing_name) == name_normalized and existing_name != name:
-            similar_names.append(existing_name)
-
-    if similar_names:
-        return jsonify({
-            'exists': True,
-            'similar_names': similar_names,
-            'message': f"Un joueur similaire existe déjà : {', '.join(similar_names)}. "
-                       f"Si c'est la même personne, utilisez le nom existant. "
-                       f"Si c'est une personne différente, ajoutez une distinction (ex: initiale du nom)."
-        })
-
-    return jsonify({'exists': False, 'similar_names': [], 'message': ''})
-
-
-# ==================== GESTION DES GROUPES ====================
 
 @app.route('/groups')
 @require_auth
@@ -1019,7 +626,7 @@ def group_rename(group_id):
         return redirect('/groups')
     
     # Vérifier la permission de renaming
-    rename_permission = group.get('rename_permission', 'owner')
+    rename_permission = group['rename_permission'] or 'owner'
     user_role = db.execute(
         'SELECT role FROM group_users WHERE group_id = ? AND user_id = ?',
         (group_id, user['id'])
@@ -1049,434 +656,6 @@ def group_rename(group_id):
         flash('Le nom du groupe ne peut pas être vide')
     
     return redirect(f'/groups/{group_id}')
-
-
-@app.route('/api/groups/suggest')
-@require_auth
-def api_groups_suggest():
-    """API pour suggérer des groupes basés sur les joueurs sélectionnés."""
-    user = get_current_user()
-    db = get_db()
-
-    # Récupérer les noms des joueurs depuis la query
-    player_names = request.args.get('players', '').split(',')
-    player_names = [p.strip() for p in player_names if p.strip()]
-
-    if not player_names:
-        return jsonify([])
-
-    # Récupérer les groupes de l'utilisateur contenant ces joueurs
-    user_groups = db.execute('''
-        SELECT pg.id, pg.name,
-               (SELECT COUNT(*) FROM group_members gm
-                WHERE gm.group_id = pg.id AND gm.player_name IN ({placeholders})) as matching_members,
-               (SELECT COUNT(*) FROM group_members WHERE group_id = pg.id) as total_members
-        FROM player_groups pg
-        WHERE pg.id IN (
-            SELECT group_id FROM group_users WHERE user_id = ?
-            UNION
-            SELECT group_id FROM group_members WHERE user_id = ?
-        )
-        HAVING matching_members > 0
-        ORDER BY matching_members DESC, total_members ASC
-        LIMIT 5
-    '''.format(placeholders=','.join('?' * len(player_names))),
-        (*player_names, user['id'], user['id'])
-    ).fetchall()
-
-    return jsonify([{
-        'id': g['id'],
-        'name': g['name'],
-        'matching': g['matching_members'],
-        'total': g['total_members']
-    } for g in user_groups])
-
-
-@app.route('/api/groups/<int:group_id>/members')
-@require_auth
-def api_group_members(group_id):
-    """API pour récupérer les membres d'un groupe."""
-    user = get_current_user()
-    db = get_db()
-
-    # Vérifier que l'utilisateur a accès au groupe (gestionnaire ou joueur)
-    access = db.execute('''
-        SELECT 1 FROM group_users WHERE group_id = ? AND user_id = ?
-        UNION
-        SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?
-    ''', (group_id, user['id'], group_id, user['id'])).fetchone()
-
-    if not access:
-        return jsonify([])
-
-    members = db.execute(
-        'SELECT player_name FROM group_members WHERE group_id = ? ORDER BY player_name',
-        (group_id,)
-    ).fetchall()
-
-    return jsonify([m['player_name'] for m in members])
-
-
-@app.route('/new', methods=['GET', 'POST'])
-@require_auth
-def new_game():
-    user = get_current_user()
-    db = get_db()
-    cur = db.cursor()
-    now = datetime.now(timezone.utc).isoformat()
-
-    group_ids = get_user_group_ids(user)
-    if group_ids:
-        placeholders = ','.join('?' * len(group_ids))
-        user_groups = db.execute(
-            f'SELECT id, name FROM player_groups WHERE id IN ({placeholders}) ORDER BY name',
-            group_ids
-        ).fetchall()
-    else:
-        user_groups = []
-
-    if request.method == 'POST':
-        game_type = request.form.get('type') or 'Skyjo'
-        comments = request.form.get('comments') or ''
-        group_id = request.form.get('group_id')
-        create_new_group = request.form.get('create_new_group') or (not user_groups and not group_id)
-        new_group_name = request.form.get('new_group_name', '').strip()
-
-        # Collect players from player_1..player_10 fields if present
-        players = []
-        for i in range(1, 11):
-            p = request.form.get(f'player_{i}')
-            if p and p.strip():
-                players.append(p.strip())
-        # Fallback to legacy comma-separated field
-        if not players:
-            players_raw = request.form.get('players') or ''
-            players = [p.strip() for p in players_raw.split(',') if p.strip()]
-        if not players:
-            flash('Ajoutez au moins un joueur (au moins 1).')
-            return redirect('/skyjo/new')
-
-        # Vérifier les doublons de noms dans la liste des joueurs soumis
-        # (deux joueurs avec le même nom normalisé dans la même partie)
-        normalized_players = {}
-        duplicates_in_form = []
-        for p in players:
-            p_normalized = normalize_name(p)
-            if p_normalized in normalized_players:
-                duplicates_in_form.append((normalized_players[p_normalized], p))
-            else:
-                normalized_players[p_normalized] = p
-
-        if duplicates_in_form:
-            dup_msg = ', '.join([f'"{a}" et "{b}"' for a, b in duplicates_in_form])
-            flash(f'Noms de joueurs identiques détectés : {dup_msg}. '
-                  f'Si ce sont des personnes différentes, ajoutez une distinction (ex: initiale du nom).')
-            return redirect('/skyjo/new')
-
-        # Créer un nouveau groupe si demandé
-        if create_new_group:
-            # Générer un nom automatique si non fourni
-            if not new_group_name:
-                count = db.execute(
-                    'SELECT COUNT(*) as c FROM player_groups WHERE created_by = ?',
-                    (user['id'],)
-                ).fetchone()['c']
-                new_group_name = f"Groupe {count + 1}"
-            cur.execute(
-                'INSERT INTO player_groups (name, created_by, created_at) VALUES (?, ?, ?)',
-                (new_group_name, user['id'], now)
-            )
-            group_id = cur.lastrowid
-            # Ajouter l'utilisateur comme owner
-            cur.execute(
-                'INSERT INTO group_users (group_id, user_id, role) VALUES (?, ?, ?)',
-                (group_id, user['id'], 'owner')
-            )
-            # Ajouter les joueurs au groupe
-            for p in players:
-                cur.execute(
-                    'INSERT INTO group_members (group_id, player_name) VALUES (?, ?)',
-                    (group_id, p)
-                )
-        elif group_id:
-            # Ajouter les nouveaux joueurs au groupe existant s'ils n'y sont pas déjà
-            existing_members = db.execute(
-                'SELECT player_name FROM group_members WHERE group_id = ?',
-                (group_id,)
-            ).fetchall()
-            existing_names = {m['player_name'].lower() for m in existing_members}
-            for p in players:
-                if p.lower() not in existing_names:
-                    cur.execute(
-                        'INSERT INTO group_members (group_id, player_name) VALUES (?, ?)',
-                        (group_id, p)
-                    )
-
-        # Si pas de groupe sélectionné, utiliser le premier groupe de l'utilisateur
-        if not group_id:
-            group_id = user_groups[0]['id']
-            # Ajouter les joueurs à ce groupe
-            existing_members = db.execute(
-                'SELECT player_name FROM group_members WHERE group_id = ?',
-                (group_id,)
-            ).fetchall()
-            existing_names = {m['player_name'].lower() for m in existing_members}
-            for p in players:
-                if p.lower() not in existing_names:
-                    cur.execute(
-                        'INSERT INTO group_members (group_id, player_name) VALUES (?, ?)',
-                        (group_id, p)
-                    )
-
-        # Créer la partie (group_id est toujours défini maintenant)
-        cur.execute(
-            'INSERT INTO games (created_at, type, comments, group_id, created_by) VALUES (?, ?, ?, ?, ?)',
-            (now, game_type, comments, group_id, user['id'])
-        )
-        game_id = cur.lastrowid
-
-        for p in players:
-            cur.execute('INSERT INTO players (game_id, name) VALUES (?, ?)', (game_id, p))
-
-        db.commit()
-        return redirect(f"/skyjo/game/{game_id}")
-
-    # GET: récupérer le type de jeu et le groupe depuis les paramètres URL
-    default_type = request.args.get('type', None)
-    # Groupe présélectionné uniquement si passé en paramètre URL (depuis page groupe)
-    default_group_id = request.args.get('group', None)
-
-    return render_template('new_game.html',
-                           default_type=default_type,
-                           user_groups=user_groups,
-                           default_group_id=default_group_id,
-                           user=user)
-
-@app.route('/game/<int:game_id>', methods=['GET'])
-@require_auth
-def game_view(game_id):
-    db = get_db()
-    game = db.execute('SELECT * FROM skyjo_games WHERE id=?', (game_id,)).fetchone()
-    players = db.execute('SELECT name FROM skyjo_players WHERE game_id=?', (game_id,)).fetchall()
-    player_names = [p['name'] for p in players]
-    totals = get_totals(game_id)
-
-    # Récupère les rounds et regroupe par numéro de round en matrice
-    rows = db.execute('SELECT round_number, player_name, score, created_at, is_finisher FROM skyjo_rounds WHERE game_id=? ORDER BY round_number, id', (game_id,)).fetchall()
-    rounds_by_num = {}
-    for r in rows:
-        n = r['round_number']
-        if n not in rounds_by_num:
-            rounds_by_num[n] = {'round': n, 'scores': {}, 'timestamp': None, 'finisher': None}
-        rounds_by_num[n]['scores'][r['player_name']] = r['score']
-        if r['is_finisher'] == 1:
-            rounds_by_num[n]['finisher'] = r['player_name']
-        if r['created_at']:
-            ts = r['created_at']
-            if rounds_by_num[n]['timestamp'] is None or ts > rounds_by_num[n]['timestamp']:
-                rounds_by_num[n]['timestamp'] = ts
-
-    # Calculer si le finisher a eu son score doublé
-    for round_data in rounds_by_num.values():
-        finisher = round_data['finisher']
-        if finisher and finisher in round_data['scores']:
-            scores = round_data['scores']
-            finisher_score = scores[finisher]
-            # Calculer le score minimum de TOUS les joueurs
-            min_score = min(scores.values())
-            # Le score a été doublé si finisher_score > min_score ET finisher_score est positif
-            # (le doublement a déjà été appliqué en base)
-            if finisher_score > min_score and finisher_score > 0:
-                round_data['was_doubled'] = True
-            else:
-                round_data['was_doubled'] = False
-        else:
-            round_data['was_doubled'] = False
-
-    rounds_matrix = [rounds_by_num[n] for n in sorted(rounds_by_num.keys())]
-
-    user = get_current_user()
-    if game['finished']:
-        can_edit = is_admin(user)
-    else:
-        can_edit = True
-
-    return render_template('game.html', game=game, players=player_names, totals=totals,
-                           rounds_matrix=rounds_matrix, can_edit=can_edit,
-                           is_admin=is_admin(user))
-
-@app.route('/submit_round/<int:game_id>', methods=['POST'])
-@require_auth
-def submit_round(game_id):
-    db = get_db()
-    game = db.execute('SELECT * FROM skyjo_games WHERE id=?', (game_id,)).fetchone()
-    if not game:
-        flash('Partie introuvable')
-        return redirect('/skyjo/')
-    if game['finished']:
-        flash('La partie est terminée, les scores ne sont plus modifiables')
-        return redirect(f"/skyjo/game/{game_id}")
-
-    cur = db.execute('SELECT MAX(round_number) as m FROM skyjo_rounds WHERE game_id=?', (game_id,)).fetchone()
-    next_round = (cur['m'] or 0) + 1
-    players = db.execute('SELECT name FROM skyjo_players WHERE game_id=?', (game_id,)).fetchall()
-
-    # Récupérer qui a terminé la manche
-    finisher = request.form.get('finisher')
-
-    # Collecter les scores de la manche
-    round_scores = {}
-    for p in players:
-        name = p['name']
-        s = request.form.get('score_' + name)
-        try:
-            val = int(s)
-        except Exception:
-            val = 0
-        round_scores[name] = val
-
-    # Appliquer la règle du doublement si un finisher est défini
-    doubled_player = None
-    if finisher and finisher in round_scores:
-        # Trouver le score minimum de tous les joueurs
-        min_score = min(round_scores.values())
-        finisher_score = round_scores[finisher]
-
-        # Le finisher doit avoir STRICTEMENT le plus petit score pour éviter le doublement
-        # Donc on double si : finisher_score >= min_score ET (finisher_score > min_score OU il y a égalité)
-        # Simplifié : doubler si finisher_score > min_score OU (finisher_score == min_score ET un autre joueur a aussi min_score)
-        has_strictly_smallest = finisher_score == min_score and list(round_scores.values()).count(min_score) == 1
-
-        # Si le finisher n'a PAS strictement le plus petit score ET que son score est positif
-        if not has_strictly_smallest and finisher_score > 0:
-            round_scores[finisher] = finisher_score * 2
-            doubled_player = finisher
-
-    # Insérer les rounds avec les scores (possiblement doublés)
-    for p in players:
-        name = p['name']
-        score = round_scores[name]
-        is_finisher = 1 if name == finisher else 0
-
-        db.execute('INSERT INTO rounds (game_id, round_number, player_name, score, created_at, is_finisher) VALUES (?, ?, ?, ?, ?, ?)',
-                   (game_id, next_round, name, score, datetime.now(timezone.utc).isoformat(), is_finisher))
-
-    db.commit()
-
-    # Message de doublement
-    if doubled_player:
-        flash(f'⚠️ {doubled_player} a terminé mais n\'a pas le meilleur score : points doublés ! ({round_scores[doubled_player]//2} × 2 = {round_scores[doubled_player]})', 'warning')
-
-    # Vérifier si quelqu'un atteint 100 points
-    totals = get_totals(game_id)
-    for total in totals.values():
-        if total >= 100:
-            db.execute('UPDATE skyjo_games SET finished=1 WHERE id=?', (game_id,))
-            db.commit()
-            flash('Un joueur a atteint 100 points — la partie est terminée.')
-            break
-
-    return redirect(f"/skyjo/game/{game_id}")
-
-@app.route('/terminate/<int:game_id>', methods=['POST'])
-@require_auth
-def terminate(game_id):
-    db = get_db()
-    has_rounds = db.execute('SELECT 1 FROM skyjo_rounds WHERE game_id=? LIMIT 1', (game_id,)).fetchone()
-    if not has_rounds:
-        db.execute('DELETE FROM skyjo_players WHERE game_id=?', (game_id,))
-        db.execute('DELETE FROM skyjo_games WHERE id=?', (game_id,))
-        db.commit()
-        flash('Partie vide supprimée.')
-        return redirect('/skyjo/')
-    db.execute('UPDATE skyjo_games SET finished=1 WHERE id=?', (game_id,))
-    db.commit()
-    flash('Partie terminée manuellement.')
-    return redirect(f"/skyjo/game/{game_id}")
-
-@app.route('/delete_game/<int:game_id>', methods=['POST'])
-@require_auth
-def delete_game(game_id):
-    user = get_current_user()
-    if not is_admin(user):
-        flash('Action réservée à l\'admin')
-        return redirect(f"/skyjo/game/{game_id}")
-    db = get_db()
-    db.execute('DELETE FROM skyjo_rounds WHERE game_id=?', (game_id,))
-    db.execute('DELETE FROM skyjo_players WHERE game_id=?', (game_id,))
-    db.execute('DELETE FROM skyjo_games WHERE id=?', (game_id,))
-    db.commit()
-    flash('Partie supprimée.')
-    return redirect('/skyjo/')
-
-@app.route('/edit_round/<int:game_id>/<int:round_number>', methods=['POST'])
-@require_auth
-def edit_round(game_id, round_number):
-    try:
-        data = request.get_json()
-        if not data or 'scores' not in data:
-            return {'success': False, 'error': 'Données manquantes'}, 400
-
-        scores = data['scores']
-        finisher = data.get('finisher', None)
-        db = get_db()
-
-        game = db.execute('SELECT * FROM skyjo_games WHERE id=?', (game_id,)).fetchone()
-        if not game:
-            return {'success': False, 'error': 'Partie introuvable'}, 404
-
-        user = get_current_user()
-        if game['finished'] and not is_admin(user):
-            return {'success': False, 'error': 'Partie terminée, modification réservée à l\'admin'}, 403
-
-        # Vérifier que le round existe
-        existing = db.execute(
-            'SELECT COUNT(*) as cnt FROM skyjo_rounds WHERE game_id=? AND round_number=?',
-            (game_id, round_number)
-        ).fetchone()
-
-        if existing['cnt'] == 0:
-            return {'success': False, 'error': 'Round introuvable'}, 404
-
-        # Appliquer la règle de doublement si nécessaire
-        round_scores = scores.copy()
-        if finisher and finisher in round_scores:
-            # Trouver le score minimum de tous les joueurs
-            min_score = min(round_scores.values())
-            finisher_score = round_scores[finisher]
-
-            # Le finisher doit avoir STRICTEMENT le plus petit score pour éviter le doublement
-            has_strictly_smallest = finisher_score == min_score and list(round_scores.values()).count(min_score) == 1
-
-            # Si le finisher n'a PAS strictement le plus petit score ET que son score est positif
-            if not has_strictly_smallest and finisher_score > 0:
-                round_scores[finisher] = finisher_score * 2
-
-        # Mettre à jour les scores et le is_finisher
-        for player, original_score in scores.items():
-            # Utiliser le score doublé si applicable
-            final_score = round_scores[player]
-            is_finisher = 1 if player == finisher else 0
-
-            db.execute(
-                'UPDATE skyjo_rounds SET score=?, is_finisher=? WHERE game_id=? AND round_number=? AND player_name=?',
-                (final_score, is_finisher, game_id, round_number, player)
-            )
-
-        db.commit()
-
-        # Vérifier si un joueur a maintenant atteint 100 points
-        totals = get_totals(game_id)
-        should_finish = any(total >= 100 for total in totals.values())
-
-        if should_finish:
-            db.execute('UPDATE skyjo_games SET finished=1 WHERE id=?', (game_id,))
-            db.commit()
-
-        return {'success': True, 'finished': should_finish}
-
-    except Exception as e:
-        return {'success': False, 'error': str(e)}, 500
 
 @app.route('/admin')
 @require_auth
@@ -1956,7 +1135,8 @@ def get_rules(game_type):
     flash('Règles non disponibles pour ce type de jeu')
     return redirect('/skyjo/')
 
-# Application WSGI entrypoint (no dispatcher): keep app at root; Apache proxies /skyjo/ -> http://127.0.0.1:8000/
+# Application WSGI entrypoint. Routes communes (hub, login, groups, admin, stats...) à la racine,
+# routes Skyjo sous /skyjo/ via skyjo_bp. Apache proxifie / et /skyjo/ vers cette même app sans retirer le préfixe.
 application = app
 
 if __name__ == '__main__':
