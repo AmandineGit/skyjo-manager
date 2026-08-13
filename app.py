@@ -927,9 +927,17 @@ def group_detail(group_id):
         LIMIT 10
     ''', (group_id,)).fetchall()
 
+    # Récupérer le rôle de l'utilisateur dans ce groupe
+    user_role_row = db.execute(
+        'SELECT role FROM group_users WHERE group_id = ? AND user_id = ?',
+        (group_id, user['id'])
+    ).fetchone()
+    user_role = user_role_row['role'] if user_role_row else None
+
     return render_template('group_detail.html',
                            group=group, members=members, users=users,
-                           games=games, user=user, is_admin=is_admin(user))
+                           games=games, user=user, is_admin=is_admin(user),
+                           user_role=user_role)
 
 
 @app.route('/groups/<int:group_id>/edit', methods=['POST'])
@@ -991,6 +999,63 @@ def group_edit(group_id):
                 flash('Aucun utilisateur trouvé avec cet email')
 
     return redirect(f'/skyjo/groups/{group_id}')
+
+
+@app.route('/groups/<int:group_id>/rename', methods=['POST'])
+@require_auth
+def group_rename(group_id):
+    """Renommer un groupe avec vérification des permissions."""
+    user = get_current_user()
+    db = get_db()
+    
+    # Récupérer le groupe
+    group = db.execute('SELECT * FROM player_groups WHERE id = ?', (group_id,)).fetchone()
+    if not group:
+        flash('Groupe non trouvé')
+        return redirect('/groups')
+    
+    # Vérifier l'accès à ce groupe
+    has_access = is_admin(user) or db.execute('''
+        SELECT 1 FROM group_users WHERE group_id = ? AND user_id = ?
+        UNION
+        SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?
+    ''', (group_id, user['id'], group_id, user['id'])).fetchone()
+    
+    if not has_access:
+        flash('Vous n\'avez pas accès à ce groupe')
+        return redirect('/groups')
+    
+    # Vérifier la permission de renaming
+    rename_permission = group.get('rename_permission', 'owner')
+    user_role = db.execute(
+        'SELECT role FROM group_users WHERE group_id = ? AND user_id = ?',
+        (group_id, user['id'])
+    ).fetchone()
+    user_role = user_role['role'] if user_role else None
+    
+    can_rename = (
+        is_admin(user) or
+        (rename_permission == 'all') or
+        (rename_permission == 'owner' and user_role == 'owner')
+    )
+    
+    if not can_rename:
+        flash('Vous n\'avez pas la permission de renommer ce groupe')
+        return redirect(f'/groups/{group_id}')
+    
+    # Renommer le groupe
+    new_name = request.form.get('name', '').strip()
+    if new_name:
+        db.execute(
+            'UPDATE player_groups SET name = ? WHERE id = ?',
+            (new_name, group_id)
+        )
+        db.commit()
+        flash(f'Groupe renommé en "{new_name}"')
+    else:
+        flash('Le nom du groupe ne peut pas être vide')
+    
+    return redirect(f'/groups/{group_id}')
 
 
 @app.route('/api/groups/suggest')

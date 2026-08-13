@@ -18,6 +18,21 @@
       {% endif %}
     {% endwith %}
 
+    <!-- Formulaire renaming rapide (pour tous ceux qui ont la permission) -->
+    {% if user and (is_admin or group.rename_permission == 'all' or (user_role == 'owner' and group.rename_permission == 'owner')) %}
+    <div class="rename-section">
+      <details>
+        <summary>✏️ Renommer le groupe</summary>
+        <form method="post" action="/groups/{{ group.id }}/rename" class="inline-rename-form">
+          <div class="form-row">
+            <input type="text" name="name" placeholder="Nouveau nom..." class="form-input" required>
+            <button type="submit" class="button button-small">Renommer</button>
+          </div>
+        </form>
+      </details>
+    </div>
+    {% endif %}
+
     <div class="group-sections">
       <!-- Joueurs du groupe -->
       <div class="group-section">
