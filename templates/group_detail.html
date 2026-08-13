@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ group.name }} — Skyjo</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="/skyjo/static/style.css">
 </head>
 <body>
   <div class="page-content">
@@ -23,7 +23,7 @@
     <div class="rename-section">
       <details>
         <summary>✏️ Renommer le groupe</summary>
-        <form method="post" action="/groups/{{ group.id }}/rename" class="inline-rename-form">
+        <form method="post" action="/skyjo/groups/{{ group.id }}/rename" class="inline-rename-form">
           <div class="form-row">
             <input type="text" name="name" placeholder="Nouveau nom..." class="form-input" required>
             <button type="submit" class="button button-small">Renommer</button>
@@ -42,7 +42,7 @@
           <div class="member-item">
             <span class="member-name">{{ member.player_name }}</span>
             {% if is_admin %}
-            <form method="post" action="/groups/{{ group.id }}/edit" class="inline-form">
+            <form method="post" action="/skyjo/groups/{{ group.id }}/edit" class="inline-form">
               <input type="hidden" name="action" value="remove_member">
               <input type="hidden" name="member_id" value="{{ member.id }}">
               <button type="submit" class="button-small button-danger" title="Retirer">×</button>
@@ -53,7 +53,7 @@
         </div>
 
         {% if is_admin %}
-        <form method="post" action="/groups/{{ group.id }}/edit" class="add-member-form">
+        <form method="post" action="/skyjo/groups/{{ group.id }}/edit" class="add-member-form">
           <input type="hidden" name="action" value="add_member">
           <input type="text" name="member_name" placeholder="Nom du joueur" class="form-input-small" required>
           <button type="submit" class="button button-submit">+ Ajouter</button>
@@ -81,7 +81,7 @@
         {% if games %}
         <div class="games-list">
           {% for game in games %}
-          <a href="/skyjo/game/{{ game.id }}" class="game-item">
+          <a href="/skyjo/play/game/{{ game.id }}" class="game-item">
             <span class="game-type">Partie #{{ game.id }} — {{ game.created_at|format_date_fr }}</span>
             <span class="game-status {{ 'finished' if game.finished else 'ongoing' }}">
               {{ 'Terminée' if game.finished else 'En cours' }}
@@ -98,7 +98,7 @@
       {% if is_admin %}
       <div class="group-section">
         <h2>Paramètres (admin)</h2>
-        <form method="post" action="/groups/{{ group.id }}/edit" class="rename-form">
+        <form method="post" action="/skyjo/groups/{{ group.id }}/edit" class="rename-form">
           <input type="hidden" name="action" value="rename">
           <label>Renommer le groupe</label>
           <div class="form-row">
@@ -111,9 +111,9 @@
     </div>
 
     <div class="page-actions">
-      <a href="/skyjo/new?group={{ group.id }}" class="button button-submit">+ Nouvelle partie</a>
-      <a href="/stats?group={{ group.id }}" class="button">Statistiques</a>
-      <a href="/groups" class="button button-secondary">← Mes groupes</a>
+      <a href="/skyjo/play/new?group={{ group.id }}" class="button button-submit">+ Nouvelle partie</a>
+      <a href="/skyjo/stats?group={{ group.id }}" class="button">Statistiques</a>
+      <a href="/skyjo/groups" class="button button-secondary">← Mes groupes</a>
     </div>
   </div>
 </body>

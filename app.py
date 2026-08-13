@@ -219,7 +219,7 @@ def register():
 def logout():
     session.clear()
     flash('Vous avez été déconnecté')
-    return redirect('/login')
+    return redirect('/skyjo/login')
 
 
 # === HUB - Accueil commune ===
@@ -250,7 +250,7 @@ def hub():
             'name': 'Skyjo',
             'icon': '🎲',
             'description': 'Jeu de cartes avec stratégie et défausse',
-            'url': '/skyjo/',
+            'url': '/skyjo/play/',
         }
     ]
 
@@ -387,7 +387,7 @@ def reset_password(token):
 
     if not user:
         flash('Lien de réinitialisation invalide ou expiré')
-        return redirect('/login')
+        return redirect('/skyjo/login')
 
     # Vérifier l'expiration
     if user['reset_token_expires']:
@@ -412,7 +412,7 @@ def reset_password(token):
             )
             db.commit()
             flash('Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter.')
-            return redirect('/login')
+            return redirect('/skyjo/login')
 
     return render_template('reset_password.html', token=token)
 
@@ -612,7 +612,7 @@ def group_rename(group_id):
     group = db.execute('SELECT * FROM player_groups WHERE id = ?', (group_id,)).fetchone()
     if not group:
         flash('Groupe non trouvé')
-        return redirect('/groups')
+        return redirect('/skyjo/groups')
     
     # Vérifier l'accès à ce groupe
     has_access = is_admin(user) or db.execute('''
@@ -623,7 +623,7 @@ def group_rename(group_id):
     
     if not has_access:
         flash('Vous n\'avez pas accès à ce groupe')
-        return redirect('/groups')
+        return redirect('/skyjo/groups')
     
     # Vérifier la permission de renaming
     rename_permission = group['rename_permission'] or 'owner'
@@ -641,7 +641,7 @@ def group_rename(group_id):
     
     if not can_rename:
         flash('Vous n\'avez pas la permission de renommer ce groupe')
-        return redirect(f'/groups/{group_id}')
+        return redirect(f'/skyjo/groups/{group_id}')
     
     # Renommer le groupe
     new_name = request.form.get('name', '').strip()
@@ -655,7 +655,7 @@ def group_rename(group_id):
     else:
         flash('Le nom du groupe ne peut pas être vide')
     
-    return redirect(f'/groups/{group_id}')
+    return redirect(f'/skyjo/groups/{group_id}')
 
 @app.route('/admin')
 @require_auth

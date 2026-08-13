@@ -11,7 +11,7 @@ def require_auth(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('user_id'):
-            return redirect('/login')
+            return redirect('/skyjo/login')
         return f(*args, **kwargs)
     return decorated_function
 

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from core.auth import require_auth, get_current_user, is_admin, get_user_group_ids
 from core.db import get_db, get_totals, normalize_name, format_date_fr
 
-skyjo_bp = Blueprint('skyjo', __name__, url_prefix='/skyjo', template_folder='../../templates')
+skyjo_bp = Blueprint('skyjo', __name__, url_prefix='/play', template_folder='../../templates')
 
 
 @skyjo_bp.route('/')
@@ -94,7 +94,7 @@ def new_game():
             players = [p.strip() for p in players_raw.split(',') if p.strip()]
         if not players:
             flash('Ajoutez au moins un joueur (au moins 1).')
-            return redirect('/skyjo/new')
+            return redirect('/skyjo/play/new')
 
         # Vérifier les doublons de noms dans la liste des joueurs soumis
         normalized_players = {}
@@ -110,7 +110,7 @@ def new_game():
             dup_msg = ', '.join([f'"{a}" et "{b}"' for a, b in duplicates_in_form])
             flash(f'Noms de joueurs identiques détectés : {dup_msg}. '
                   f'Si ce sont des personnes différentes, ajoutez une distinction (ex: initiale du nom).')
-            return redirect('/skyjo/new')
+            return redirect('/skyjo/play/new')
 
         # Créer un nouveau groupe si demandé
         if create_new_group:
@@ -178,7 +178,7 @@ def new_game():
             cur.execute('INSERT INTO skyjo_players (game_id, name) VALUES (?, ?)', (game_id, p))
 
         db.commit()
-        return redirect(f"/skyjo/game/{game_id}")
+        return redirect(f"/skyjo/play/game/{game_id}")
 
     # GET: récupérer le type de jeu et le groupe depuis les paramètres URL
     default_type = request.args.get('type', None)
@@ -249,10 +249,10 @@ def submit_round(game_id):
     game = db.execute('SELECT * FROM skyjo_games WHERE id=?', (game_id,)).fetchone()
     if not game:
         flash('Partie introuvable')
-        return redirect('/skyjo/')
+        return redirect('/skyjo/play/')
     if game['finished']:
         flash('La partie est terminée, les scores ne sont plus modifiables')
-        return redirect(f"/skyjo/game/{game_id}")
+        return redirect(f"/skyjo/play/game/{game_id}")
 
     cur = db.execute('SELECT MAX(round_number) as m FROM skyjo_rounds WHERE game_id=?', (game_id,)).fetchone()
     next_round = (cur['m'] or 0) + 1
@@ -305,7 +305,7 @@ def submit_round(game_id):
             flash('Un joueur a atteint 100 points — la partie est terminée.')
             break
 
-    return redirect(f"/skyjo/game/{game_id}")
+    return redirect(f"/skyjo/play/game/{game_id}")
 
 
 @skyjo_bp.route('/terminate/<int:game_id>', methods=['POST'])
@@ -318,11 +318,11 @@ def terminate(game_id):
         db.execute('DELETE FROM skyjo_games WHERE id=?', (game_id,))
         db.commit()
         flash('Partie vide supprimée.')
-        return redirect('/skyjo/')
+        return redirect('/skyjo/play/')
     db.execute('UPDATE skyjo_games SET finished=1 WHERE id=?', (game_id,))
     db.commit()
     flash('Partie terminée manuellement.')
-    return redirect(f"/skyjo/game/{game_id}")
+    return redirect(f"/skyjo/play/game/{game_id}")
 
 
 @skyjo_bp.route('/delete_game/<int:game_id>', methods=['POST'])
@@ -331,14 +331,14 @@ def delete_game(game_id):
     user = get_current_user()
     if not is_admin(user):
         flash('Action réservée à l\'admin')
-        return redirect(f"/skyjo/game/{game_id}")
+        return redirect(f"/skyjo/play/game/{game_id}")
     db = get_db()
     db.execute('DELETE FROM skyjo_rounds WHERE game_id=?', (game_id,))
     db.execute('DELETE FROM skyjo_players WHERE game_id=?', (game_id,))
     db.execute('DELETE FROM skyjo_games WHERE id=?', (game_id,))
     db.commit()
     flash('Partie supprimée.')
-    return redirect('/skyjo/')
+    return redirect('/skyjo/play/')
 
 
 @skyjo_bp.route('/edit_round/<int:game_id>/<int:round_number>', methods=['POST'])

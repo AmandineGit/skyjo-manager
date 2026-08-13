@@ -4,19 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Skyjo — Parties</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="/skyjo/static/style.css">
 </head>
 <body>
   <div class="page-content">
-  <a href="/" class="button button-secondary" style="margin-bottom: 10px;">← Menu principal</a>
+  <a href="/skyjo/" class="button button-secondary" style="margin-bottom: 10px;">← Menu principal</a>
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
     <h1 style="margin: 0;">Skyjo Manager</h1>
     <div class="user-menu">
       {% if session.get('user_email') == 'admin@skyjo.local' %}
-      <a href="/admin" class="button button-secondary" style="margin: 0;">⚙ Admin</a>
+      <a href="/skyjo/admin" class="button button-secondary" style="margin: 0;">⚙ Admin</a>
       {% endif %}
-      <a href="/profile" class="button button-secondary" style="margin: 0;">👤 {{ session.get('user_name', 'Profil') }}</a>
-      <a href="/logout" class="button button-danger" style="margin: 0;">Déconnexion</a>
+      <a href="/skyjo/profile" class="button button-secondary" style="margin: 0;">👤 {{ session.get('user_name', 'Profil') }}</a>
+      <a href="/skyjo/logout" class="button button-danger" style="margin: 0;">Déconnexion</a>
     </div>
   </div>
 
@@ -29,27 +29,27 @@
   {% endwith %}
 
   <div class="home-actions">
-    <a href="/skyjo/new" class="home-action-btn">
+    <a href="/skyjo/play/new" class="home-action-btn">
       <span class="action-icon">➕</span>
       <span class="action-text">Nouvelle partie</span>
     </a>
-    <a href="/groups" class="home-action-btn">
+    <a href="/skyjo/groups" class="home-action-btn">
       <span class="action-icon">👥</span>
       <span class="action-text">Mes groupes</span>
     </a>
-    <a href="/stats" class="home-action-btn">
+    <a href="/skyjo/stats" class="home-action-btn">
       <span class="action-icon">📊</span>
       <span class="action-text">Stats</span>
     </a>
   </div>
 
-  <form method="get" action="/skyjo/" class="search-form">
+  <form method="get" action="/skyjo/play/" class="search-form">
     <label for="date">Rechercher par date :</label>
     <div class="search-controls">
       <input type="date" id="date" name="date" value="{{ search_date or '' }}" class="date-input">
       <button type="submit" class="search-button">Rechercher</button>
       {% if search_date %}
-        <a href="/skyjo/" class="button button-secondary">Réinitialiser</a>
+        <a href="/skyjo/play/" class="button button-secondary">Réinitialiser</a>
       {% endif %}
     </div>
   </form>
@@ -63,10 +63,10 @@
   <ul>
   {% for g in games %}
     <li>
-      <a href="/skyjo/game/{{ g['id'] }}">Partie #{{ g['id'] }}</a> — {{ g['created_display'] or g['created_at'] }}{% if search_date %} — {{ 'terminée' if g['finished'] else 'en cours' }}{% endif %}
+      <a href="/skyjo/play/game/{{ g['id'] }}">Partie #{{ g['id'] }}</a> — {{ g['created_display'] or g['created_at'] }}{% if search_date %} — {{ 'terminée' if g['finished'] else 'en cours' }}{% endif %}
     </li>
   {% else %}
-    <li>Aucune partie{% if not search_date %}. <a href="/skyjo/new">Créer une partie</a>{% endif %}</li>
+    <li>Aucune partie{% if not search_date %}. <a href="/skyjo/play/new">Créer une partie</a>{% endif %}</li>
   {% endfor %}
   </ul>
   </div>

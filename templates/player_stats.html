@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Stats {{ player_name }} — Skyjo</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="/skyjo/static/style.css">
 </head>
 <body>
   <div class="page-content">
   <div style="margin-bottom: 20px;">
-    <a href="/stats/{{ game_type }}{% if group_id %}?group={{ group_id }}{% endif %}" class="button button-secondary">← Retour aux stats {{ game_type }}</a>
+    <a href="/skyjo/stats/{{ game_type }}{% if group_id %}?group={{ group_id }}{% endif %}" class="button button-secondary">← Retour aux stats {{ game_type }}</a>
   </div>
   <h1>📊 {{ player_name }}</h1>
   <p style="font-size: 1rem; color: #666; margin-bottom: 25px;">
@@ -115,9 +115,9 @@
   {% endif %}
 
   <div style="margin-top: 30px;">
-    <a href="/stats/{{ game_type }}{% if group_id %}?group={{ group_id }}{% endif %}" class="button">← Retour aux stats {{ game_type }}</a>
+    <a href="/skyjo/stats/{{ game_type }}{% if group_id %}?group={{ group_id }}{% endif %}" class="button">← Retour aux stats {{ game_type }}</a>
   </div>
-  <a href="/stats{% if group_id %}?group={{ group_id }}{% endif %}" class="back-button">← Menu stats</a>
+  <a href="/skyjo/stats{% if group_id %}?group={{ group_id }}{% endif %}" class="back-button">← Menu stats</a>
   </div>
 </body>
 </html>

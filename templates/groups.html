@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mes groupes — Skyjo</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="/skyjo/static/style.css">
 </head>
 <body>
   <div class="page-content">
-    <a href="/" class="button button-secondary" style="margin-bottom: 10px;">← Menu principal</a>
+    <a href="/skyjo/" class="button button-secondary" style="margin-bottom: 10px;">← Menu principal</a>
     <h1>Mes groupes</h1>
 
     {% with messages = get_flashed_messages() %}
@@ -21,14 +21,14 @@
 
     {% if user.email == 'admin@skyjo.local' %}
     <div class="groups-actions">
-      <a href="/groups/new" class="button button-submit">+ Créer un groupe</a>
+      <a href="/skyjo/groups/new" class="button button-submit">+ Créer un groupe</a>
     </div>
     {% endif %}
 
     {% if groups %}
     <div class="groups-grid">
       {% for group in groups %}
-      <a href="/groups/{{ group.id }}" class="group-card">
+      <a href="/skyjo/groups/{{ group.id }}" class="group-card">
         <div class="group-icon">👥</div>
         <h3>{{ group.name }}</h3>
         <div class="group-stats">
@@ -42,12 +42,12 @@
     <div class="empty-state">
       <div class="empty-icon">📭</div>
       <h2>Aucun groupe</h2>
-      <p>Créez votre premier groupe en lançant une <a href="/skyjo/new">nouvelle partie</a>.</p>
+      <p>Créez votre premier groupe en lançant une <a href="/skyjo/play/new">nouvelle partie</a>.</p>
     </div>
     {% endif %}
 
     <div class="page-actions">
-      <a href="/" class="button button-secondary">← Retour à l'accueil</a>
+      <a href="/skyjo/" class="button button-secondary">← Retour à l'accueil</a>
     </div>
   </div>
 </body>

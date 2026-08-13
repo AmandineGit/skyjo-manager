@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Stats {{ game_type }} — Skyjo</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="/skyjo/static/style.css">
 </head>
 <body>
   <div class="page-content">
   <div style="margin-bottom: 20px;">
-    <a href="/stats{% if group_id %}?group={{ group_id }}{% endif %}" class="button button-secondary">← Retour au menu stats</a>
+    <a href="/skyjo/stats{% if group_id %}?group={{ group_id }}{% endif %}" class="button button-secondary">← Retour au menu stats</a>
   </div>
   <h1>Statistiques - {{ game_type }}</h1>
 
@@ -170,7 +170,7 @@
                 {{ loop.index }}
               {% endif %}
             </td>
-            <td class="player-name-col"><a href="/stats/{{ game_type }}/player/{{ s.player }}{% if group_id %}?group={{ group_id }}{% endif %}" class="player-link"><strong>{{ s.player }}</strong></a></td>
+            <td class="player-name-col"><a href="/skyjo/stats/{{ game_type }}/player/{{ s.player }}{% if group_id %}?group={{ group_id }}{% endif %}" class="player-link"><strong>{{ s.player }}</strong></a></td>
             <td class="stat-col">{{ '%.2f'|format(s.mean) }}</td>
             <td class="stat-col stat-col-hide-mobile">{{ '%.2f'|format(s.median) }}</td>
             <td class="stat-col stat-col-hide-mobile stat-best">{{ s.best }}</td>
@@ -195,7 +195,7 @@
 
   <script>
   function filterByGroup(groupId) {
-    var url = '/stats/{{ game_type }}';
+    var url = '/skyjo/stats/{{ game_type }}';
     if (groupId) {
       url += '?group=' + groupId;
     }
