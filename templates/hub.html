@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skyjo Manager - Accueil</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .hub-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .hub-header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px 0;
+            border-bottom: 2px solid #007bff;
+        }
+        .hub-header h1 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .user-welcome {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .stats-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            border-left: 4px solid #007bff;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .game-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+        }
+        .game-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,123,255, 0.2);
+            border-color: #007bff;
+        }
+        .game-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .game-name {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .game-description {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 15px;
+            min-height: 40px;
+        }
+        .btn-play {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        .btn-play:hover {
+            background: #0056b3;
+        }
+        .menu-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+        }
+        .menu-links {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .menu-link {
+            color: #007bff;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .menu-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="hub-container">
+        <div class="hub-header">
+            <h1>🎮 Skyjo Manager</h1>
+            <p class="user-welcome">Bienvenue, <strong>{{ user['player_name'] or user['email'] }}</strong></p>
+        </div>
+
+        {% if stats.total_games > 0 or stats.groups_count > 0 %}
+        <div class="stats-overview">
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.total_games }}</div>
+                <div class="stat-label">Parties jouées</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.total_rounds }}</div>
+                <div class="stat-label">Manches</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.groups_count }}</div>
+                <div class="stat-label">Groupes</div>
+            </div>
+        </div>
+        {% endif %}
+
+        <h2 style="margin-top: 30px; margin-bottom: 20px;">Jeux disponibles</h2>
+        <div class="games-grid">
+            {% for game in games %}
+            <a href="{{ game.url }}" class="game-card">
+                <div class="game-icon">{{ game.icon }}</div>
+                <div class="game-name">{{ game.name }}</div>
+                <div class="game-description">{{ game.description }}</div>
+                <div class="btn-play">Jouer</div>
+            </a>
+            {% endfor %}
+        </div>
+
+        <div class="menu-section">
+            <div class="menu-links">
+                <a href="/groups" class="menu-link">📋 Mes groupes</a>
+                <a href="/stats" class="menu-link">📊 Statistiques</a>
+                <a href="/profile" class="menu-link">👤 Profil</a>
+                <a href="/logout" class="menu-link">🚪 Déconnexion</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,11 +1,19 @@
 """
-Skyjo Manager - Platform générique de gestion de scores pour jeux de société
+Skyjo Manager - Application de gestion de parties Skyjo
 
-Architecture multi-jeux (Phase 1):
-- Authentification centralisée (users)
-- Groupes de joueurs partagés entre les jeux
-- Chaque jeu gère ses propres tables (skyjo_games, skyjo_players, skyjo_rounds, etc.)
-- Hub d'accueil commun
+Architecture:
+- Authentification par compte utilisateur (email/mot de passe)
+- Groupes de joueurs partagés entre utilisateurs
+- Statistiques par groupe et globales
+
+Tables principales:
+- users: Comptes utilisateurs
+- player_groups: Groupes de joueurs
+- group_members: Membres (joueurs) d'un groupe
+- group_users: Utilisateurs ayant accès à un groupe
+- games: Parties (liées à un groupe)
+- players: Joueurs participant à une partie
+- rounds: Scores par manche
 """
 
 import os
@@ -21,13 +29,6 @@ from flask import (
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# Import core modules
-from core.db import get_db, init_db, close_db_connection, format_ts, format_date_fr, normalize_name
-from core.auth import require_auth, get_current_user, is_admin, get_user_group_ids
-
-# Import game blueprints
-from games.skyjo.routes import skyjo_bp
-
 from export_to_onedrive import export_all_to_onedrive
 
 # =============================================================================
@@ -40,11 +41,6 @@ DEV_MODE = os.environ.get('FLASK_ENV', 'development') == 'development'
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET', 'change-me')
-
-# === BLUEPRINT & FILTRES JINJA ===
-app.register_blueprint(skyjo_bp)
-app.jinja_env.filters['format_ts'] = format_ts
-app.jinja_env.filters['format_date_fr'] = format_date_fr
 
 # =============================================================================
 # UTILITAIRES
@@ -484,42 +480,6 @@ def logout():
     session.clear()
     flash('Vous avez été déconnecté')
     return redirect('/skyjo/login')
-
-
-# === HUB - Accueil commune ===
-@app.route('/')
-@require_auth
-def hub():
-    """Page d'accueil avec hub de jeux disponibles"""
-    user = get_current_user()
-    db = get_db()
-    
-    # Stats globales de l'utilisateur
-    games_count = db.execute(
-        "SELECT COUNT(*) as cnt FROM skyjo_games WHERE id IN (SELECT game_id FROM skyjo_players WHERE player_name IN (SELECT player_name FROM skyjo_players WHERE game_id IN (SELECT id FROM skyjo_games WHERE group_id IN (?))))",
-        (user['id'],)
-    ).fetchone()['cnt'] if not is_admin(user) else 0
-    
-    # Simplifié : juste compter les groupes accessibles
-    group_ids = get_user_group_ids(user)
-    groups_count = len(group_ids)
-    
-    games_list = [
-        {
-            'name': 'Skyjo',
-            'icon': '🎲',
-            'description': 'Jeu de cartes avec stratégie et défausse',
-            'url': '/skyjo/',
-        }
-    ]
-    
-    stats = {
-        'total_games': 0,
-        'total_rounds': 0,
-        'groups_count': groups_count,
-    }
-    
-    return render_template('hub.html', user=user, games=games_list, stats=stats)
 
 
 @app.route('/profile', methods=['GET', 'POST'])
