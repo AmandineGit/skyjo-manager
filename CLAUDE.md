@@ -16,7 +16,7 @@ Approche progressive, pas de sur-ingénierie :
    seulement si l'usage le justifie
 
 ## Schéma de données
-⚠️ Le schéma actuel est pensé pour Skyjo uniquement (voir app.py / skyjo.db).
+⚠️ Le schéma actuel est pensé pour Skyjo uniquement (voir core/db.py : tables communes + tables skyjo_*).
 Avant d'ajouter un nouveau jeu, réfléchir à une structure générique
 (ex: table `games`, `sessions`, `scores` flexible) plutôt que dupliquer
 la logique Skyjo. Ne pas migrer le schéma existant sans validation explicite,
@@ -29,9 +29,17 @@ l'historique de parties doit être préservé.
   source venv/bin/activate
   gunicorn --bind 127.0.0.1:5000 app:app
 ```
-- Test local via Apache reverse proxy : http://localhost/skyjo/ (avec le / final)
-- Config Apache locale : /etc/apache2/sites-available/000-default.conf
-  (ProxyPass /skyjo/ vers 127.0.0.1:5000/)
+- Test local via Apache reverse proxy :
+  http://localhost/familyboardgame/ (hub, pages communes) et http://localhost/skyjo/ (jeu Skyjo)
+- Config Apache locale : /etc/apache2/sites-available/skyjo-local.conf
+  (ProxyPass /familyboardgame -> 127.0.0.1:5000/, /skyjo -> 127.0.0.1:5000/play)
+
+## Architecture
+- `app.py` : routes communes (hub, auth, groupes, stats, admin), servies sous /familyboardgame/
+- `core/` : db.py (schéma + migrations légères au démarrage), auth.py
+- `games/<jeu>/routes.py` : un blueprint par jeu (Skyjo : préfixe interne /play)
+- `scripts/` : scripts de maintenance ponctuels
+- Les liens utilisent les URLs publiques en dur (/familyboardgame/..., /skyjo/...)
 
 ## Déploiement
 - Prod : Gunicorn (service systemd) sur 127.0.0.1:8000, proxifié par Apache

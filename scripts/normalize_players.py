@@ -6,7 +6,7 @@ Cherche les noms quasi-identiques (accents, casse) dans group_members et players
 choisit un nom canonique, renomme partout, déduplique, et propage les user_id.
 
 Usage:
-    python3 normalize_players.py [--dry-run] [--db-path /chemin/vers/skyjo.db]
+    python3 scripts/normalize_players.py [--dry-run] [--db-path /chemin/vers/skyjo.db]
 """
 
 import sqlite3

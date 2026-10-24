@@ -25,8 +25,11 @@ build/
 # Backups
 backup_*.db
 backup_*.xlsx
+backups/
+*.backup_*
 
 # IDE
+.claude/settings.local.json
 .vscode/
 .idea/
 *.swp
@@ -50,16 +53,6 @@ logs/
 .coverage
 htmlcov/
 *.cover
-
-# Documentation ancienne (remplacée par README.md et CHANGELOG.md)
-AJOUT_REGLES.md
-README_REGLES.md
-CHANGELOG_REGLES.md
-README_STATS_V2.md
-CHANGELOG_METRO_TILES.md
-MOBILE_OPTIMIZATIONS.md
-BACK_BUTTON_UPDATE.md
-HOME_UX_IMPROVEMENTS.md
 
 # Exports temporaires
 export_*.xlsx

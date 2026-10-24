@@ -2,15 +2,15 @@
 """
 Script pour ajouter ou modifier les règles d'un type de jeu
 Usage:
-    python3 add_game_rules.py "Nom du Jeu" "fichier-regles.pdf"
-    python3 add_game_rules.py --list
+    python3 scripts/add_game_rules.py "Nom du Jeu" "fichier-regles.pdf"
+    python3 scripts/add_game_rules.py --list
 """
 
 import sys
 import os
 import sqlite3
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, 'skyjo.db')
 IMAGES_DIR = os.path.join(BASE_DIR, 'images')
 
