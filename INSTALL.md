@@ -90,21 +90,49 @@ sudo systemctl reload apache2
 sudo certbot --apache -d digital-pragma.fr   # si le certificat n'existe pas encore
 ```
 
-## 5. Mises à jour
+## 5. Déploiement automatique (GitHub Actions)
 
-Depuis `/var/www/skyjo` :
+Chaque push sur `main` déclenche `.github/workflows/deploy.yml`, qui se connecte en SSH au VPS et :
+1. sauvegarde `skyjo.db` dans `backups/skyjo_AAAAMMJJ_HHMMSS.db` (si la sauvegarde échoue, rien n'est déployé) ;
+2. copie le code par rsync avec `--delete`, **sans jamais toucher** à : `*.db*`, `backups/`, `exports/`, `venv/`, `.env`, `.git` ; les fichiers de `images/` absents du dépôt sont conservés ;
+3. redémarre `gunicorn-skyjo` et vérifie qu'il tourne.
+
+### Prérequis sur le serveur (une seule fois)
+
+L'utilisateur SSH (`REMOTE_USER`) doit pouvoir écrire dans `/var/www/skyjo`, lire la base et redémarrer le service :
 
 ```bash
-./deploy.sh
+# Accès en écriture par le groupe de l'utilisateur de déploiement (ici amandine)
+sudo chgrp -R amandine /var/www/skyjo
+sudo chmod -R g+rwX /var/www/skyjo
+sudo find /var/www/skyjo -type d -exec chmod g+s {} +
+
+# Redémarrage du service sans mot de passe, et uniquement cette commande
+echo 'amandine ALL=(root) NOPASSWD: /usr/bin/systemctl restart gunicorn-skyjo' | sudo tee /etc/sudoers.d/skyjo-deploy
+sudo chmod 440 /etc/sudoers.d/skyjo-deploy
+sudo visudo -c
 ```
 
-Le script sauvegarde la base (`backup_AAAAMMJJ_HHMMSS.db`), fait un `git pull`, met à jour les dépendances et redémarre `gunicorn-skyjo`.
+### Secrets GitHub
 
-Restaurer une sauvegarde :
+Dans le dépôt GitHub : *Settings → Secrets and variables → Actions*, mêmes secrets que pour les autres sites :
+`SSH_PRIVATE_KEY`, `REMOTE_HOST`, `REMOTE_USER`.
+
+### Dépendances Python
+
+Le déploiement ne lance pas `pip install`. Si `requirements.txt` change :
+
+```bash
+cd /var/www/skyjo
+sudo -u www-data venv/bin/pip install -r requirements.txt
+sudo systemctl restart gunicorn-skyjo
+```
+
+### Restaurer une sauvegarde
 
 ```bash
 sudo systemctl stop gunicorn-skyjo
-sudo -u www-data cp backup_AAAAMMJJ_HHMMSS.db skyjo.db
+sudo -u www-data cp backups/skyjo_AAAAMMJJ_HHMMSS.db skyjo.db
 sudo systemctl start gunicorn-skyjo
 ```
 

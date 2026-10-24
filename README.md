@@ -44,7 +44,7 @@ skyjo-manager/
 ├── scripts/                # Scripts de maintenance (voir plus bas)
 ├── tests/                  # Tests pytest
 ├── export_to_onedrive.py   # Export (stub pour l'instant)
-├── deploy.sh               # Déploiement en production
+├── .github/workflows/      # Déploiement automatique (GitHub Actions)
 └── skyjo.db                # Base SQLite (non versionnée)
 ```
 
@@ -139,7 +139,9 @@ Les anciens scripts de migration (v1 → v2, passage aux tables `skyjo_*`) ont d
 
 Installation complète du serveur : voir [INSTALL.md](INSTALL.md).
 
-Mise à jour : sur le serveur, `./deploy.sh` (sauvegarde de la base, `git pull`, dépendances, redémarrage de `gunicorn-skyjo`).
+Mise à jour : automatique à chaque push sur `main` (`.github/workflows/deploy.yml`) :
+sauvegarde de la base dans `backups/`, copie des fichiers par rsync, redémarrage de `gunicorn-skyjo`.
+Le suivi des déploiements se fait dans l'onglet **Actions** du dépôt GitHub.
 
 ```bash
 sudo journalctl -u gunicorn-skyjo -f   # logs

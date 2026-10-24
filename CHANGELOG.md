@@ -2,6 +2,9 @@
 
 ## [Non publié]
 
+### Déploiement
+- Déploiement automatique par GitHub Actions (rsync, comme les autres sites du VPS) avec sauvegarde de la base avant chaque déploiement ; `deploy.sh` supprimé
+
 ### Nettoyage
 - Dépôt nettoyé : suppression des scripts de migration déjà appliqués (`migrate_production.py`, `migrate_to_skyjo_tables.py`, `update_skyjo_queries.py`, `test_migration.py`), de `app_backup_phase1.py` et des pages de démo statiques
 - Scripts de maintenance regroupés dans `scripts/`

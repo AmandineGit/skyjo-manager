@@ -43,7 +43,9 @@ l'historique de parties doit être préservé.
 
 ## Déploiement
 - Prod : Gunicorn (service systemd) sur 127.0.0.1:8000, proxifié par Apache
-- Déploiement via `deploy.sh` (voir contenu du script pour le détail du flux)
+- Déploiement automatique par GitHub Actions à chaque push sur main
+  (`.github/workflows/deploy.yml` : backup DB, rsync, restart gunicorn-skyjo) ;
+  détail et prérequis serveur dans INSTALL.md
 
 ## Conventions
 - Réponds en français

@@ -1,0 +1,40 @@
+name: Deploy Family Board Game to VPS
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Contrairement aux sites PHP, le serveur contient des données à ne jamais toucher :
+      # base SQLite et ses sauvegardes, venv, .env, exports. Elles sont exclues du rsync,
+      # ce qui les protège aussi du --delete. images/ est protégé (P) pour garder les PDF
+      # de règles ajoutés directement sur le serveur.
+      - name: Deploy via rsync over SSH
+        uses: easingthemes/ssh-deploy@v5.1.0
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+          REMOTE_USER: ${{ secrets.REMOTE_USER }}
+          ARGS: "-rltz --omit-dir-times --delete --exclude='.git*' --exclude='.github/' --exclude='.env' --exclude='.env.*' --exclude='venv/' --exclude='__pycache__/' --exclude='*.db' --exclude='*.db.*' --exclude='*.db-*' --exclude='backup_*' --exclude='backups/' --exclude='exports/' --filter='P images/**'"
+          SOURCE: "./"
+          TARGET: "/var/www/skyjo"
+          # Sauvegarde de la base avant toute copie ; si elle échoue, rien n'est déployé
+          SCRIPT_BEFORE_REQUIRED: true
+          SCRIPT_BEFORE: |
+            set -e
+            cd /var/www/skyjo
+            mkdir -p backups
+            cp skyjo.db "backups/skyjo_$(date +%Y%m%d_%H%M%S).db"
+          SCRIPT_AFTER_REQUIRED: true
+          SCRIPT_AFTER: |
+            set -e
+            sudo -n /usr/bin/systemctl restart gunicorn-skyjo
+            sleep 2
+            systemctl is-active gunicorn-skyjo
