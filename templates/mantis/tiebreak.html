@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Départage — Partie #{{ game['id'] }} — Mantis</title>
+  <link rel="stylesheet" href="/familyboardgame/static/style.css">
+</head>
+<body class="mantis">
+  <div class="page-content">
+  <h1>⚖️ Égalité à {{ score }} cartes</h1>
+  <p style="color: #666; margin-bottom: 20px;">
+    Partie #{{ game['id'] }} — selon la règle, les joueurs à égalité sont départagés
+    par le nombre de cartes dans leur <strong>tank</strong> (les cartes posées devant eux).
+  </p>
+
+  <form method="post" action="{{ base_url }}/game/{{ game['id'] }}/finish" class="m-tiebreak">
+    {% for p in tied %}
+    <input type="hidden" name="tied" value="{{ p }}">
+    <label>
+      <strong>{{ p }}</strong> — cartes dans le tank
+      <input name="tank_{{ loop.index0 }}" type="number" min="0" inputmode="numeric" required autofocus>
+    </label>
+    {% endfor %}
+    <button type="submit" class="button button-submit">🏁 Terminer la partie</button>
+    <a href="{{ base_url }}/game/{{ game['id'] }}" class="button button-secondary">Annuler</a>
+  </form>
+  </div>
+</body>
+</html>

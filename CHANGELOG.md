@@ -2,6 +2,19 @@
 
 ## [Non publié]
 
+### Mantis
+- Nouveau jeu **Mantis** sous `/familyboardgame/mantis/` : compteur en direct (cartes marquées, vols réussis, ✏️ correction,
+  ↶ annulation), règle maison « jusqu'à épuisement de la pioche » avec départage au tank en cas d'égalité,
+  repère du seuil officiel (sprinteur), règles en images, stats en dalles et page par joueur
+- Stockage dans les tables génériques existantes (journal d'actions dans `session_scores`) : aucune nouvelle table
+
+### Plateforme
+- Liste des jeux génériques centralisée dans `games/registry.py`, lue par le hub, le menu des statistiques et les groupes
+- Accès communs aux parties génériques regroupés dans `core/sessions.py` (Flip 7 et Mantis)
+- En-tête « Family board games » commun (`templates/_hub_header.html`) sur l'accueil, les statistiques, les groupes et le profil,
+  sans bandeau Skyjo
+- Pages de connexion, d'inscription et de mot de passe : nom « Family board games » et manette 🎮 à la place de Skyjo
+
 ### Flip 7
 - Nouveau jeu **Flip 7** sous `/familyboardgame/flip7/` : saisie par manche (chiffres, bonus, ×2, Flip 7, Stop, Doublon) avec calcul automatique,
   fin à 200 points avec manche de départage en cas d'égalité, modification de manche, règles en images, statistiques et palmarès
@@ -13,8 +26,8 @@
 - Menu des statistiques : images des jeux à la place des icônes (`SkyjoStat.png`, `SkyjoActionStat.png`, `Flip7.webp`)
 
 ### Groupes
-- « Mes groupes » : nombre de parties par jeu (Skyjo, Skyjo Action, Flip 7) au lieu d'un total Skyjo seul
-- Détail d'un groupe : dernières parties tous jeux confondus (jeu et joueurs indiqués), boutons de nouvelle partie Skyjo et Flip 7
+- « Mes groupes » : nombre de parties par jeu au lieu d'un total Skyjo seul
+- Détail d'un groupe : dernières parties tous jeux confondus (jeu et joueurs indiqués), un bouton de nouvelle partie par jeu
 
 ### Déploiement
 - Déploiement automatique par GitHub Actions (rsync, comme les autres sites du VPS) avec sauvegarde de la base avant chaque déploiement ; `deploy.sh` supprimé

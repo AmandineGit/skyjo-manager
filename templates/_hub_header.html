@@ -1,0 +1,16 @@
+{# En-tête des pages communes (accueil, stats, groupes) : menu utilisateur + titre de la plateforme.
+   À utiliser avec <body class="hub-page"> (pas de bandeau propre à un jeu). #}
+<div class="hub-topbar">
+  <div class="user-menu">
+    {% if session.get('user_email') == 'admin@skyjo.local' %}
+    <a href="/familyboardgame/admin" class="button button-secondary" style="margin: 0;">⚙ Admin</a>
+    {% endif %}
+    <a href="/familyboardgame/profile" class="button button-secondary" style="margin: 0;">👤 {{ session.get('user_name', 'Profil') }}</a>
+    <a href="/familyboardgame/logout" class="button button-danger" style="margin: 0;">Déconnexion</a>
+  </div>
+</div>
+
+<div class="hub-header">
+  <h1><a href="/familyboardgame/">🎮 Family board games</a></h1>
+  <p class="user-welcome">Bienvenue, <strong>{{ session.get('user_name', '') }}</strong></p>
+</div>

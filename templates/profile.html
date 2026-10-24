@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mon profil — Skyjo</title>
+  <title>Mon profil — Family board games</title>
   <link rel="stylesheet" href="/familyboardgame/static/style.css">
 </head>
-<body>
+<body class="hub-page">
   <div class="page-content">
-    <a href="/familyboardgame/" class="button button-secondary" style="margin-bottom: 10px;">← Menu principal</a>
-    <h1>Mon profil</h1>
+  {% include '_hub_header.html' %}
+  <h2 class="hub-page-title">Mon profil</h2>
 
     {% with messages = get_flashed_messages() %}
       {% if messages %}

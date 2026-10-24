@@ -26,6 +26,8 @@ from core.auth import require_auth, get_current_user, is_admin, get_user_group_i
 # Import game blueprints
 from games.skyjo.routes import skyjo_bp
 from games.flip7.routes import flip7_bp
+from games.mantis.routes import mantis_bp
+from games.registry import GENERIC_GAMES, GAMES_BY_SLUG
 
 from export_to_onedrive import export_all_to_onedrive
 
@@ -42,6 +44,7 @@ app.secret_key = os.environ.get('FLASK_SECRET', 'change-me')
 # === BLUEPRINT & FILTRES JINJA ===
 app.register_blueprint(skyjo_bp)
 app.register_blueprint(flip7_bp)
+app.register_blueprint(mantis_bp)
 app.jinja_env.filters['format_ts'] = format_ts
 app.jinja_env.filters['format_date_fr'] = format_date_fr
 
@@ -59,6 +62,19 @@ with app.app_context():
     init_db(reset=reset_db)
 
 app.teardown_appcontext(close_db_connection)
+
+
+def platform_games():
+    """Tous les jeux de la plateforme (Skyjo + jeux génériques), affichés sur le hub."""
+    return [
+        {
+            'name': 'Skyjo',
+            'icon': '🎲',
+            'image': '/familyboardgame/images/SkyjoAcceuil.png',
+            'description': 'Jeu de cartes avec stratégie et défausse',
+            'url': '/skyjo/',
+        },
+    ] + [dict(g, url=g['url'] + '/') for g in GENERIC_GAMES]
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -244,22 +260,7 @@ def hub():
         for table in ('skyjo_games', 'game_sessions')
     )
 
-    games_list = [
-        {
-            'name': 'Skyjo',
-            'icon': '🎲',
-            'image': '/familyboardgame/images/SkyjoAcceuil.png',
-            'description': 'Jeu de cartes avec stratégie et défausse',
-            'url': '/skyjo/',
-        },
-        {
-            'name': 'Flip 7',
-            'icon': '🃏',
-            'image': '/familyboardgame/images/Flip7.webp',
-            'description': 'Stop ou encore ? Le premier à 200 points',
-            'url': '/familyboardgame/flip7/',
-        },
-    ]
+    games_list = platform_games()
 
     stats = {
         'total_games': total_games,
@@ -435,8 +436,7 @@ def groups_list():
                COALESCE(gu.role, 'player') as role,
                (SELECT COUNT(*) FROM group_members WHERE group_id = pg.id) as member_count,
                (SELECT COUNT(*) FROM skyjo_games WHERE group_id = pg.id AND type = 'Skyjo') as skyjo_count,
-               (SELECT COUNT(*) FROM skyjo_games WHERE group_id = pg.id AND type = 'Skyjo Action') as skyjo_action_count,
-               (SELECT COUNT(*) FROM game_sessions WHERE group_id = pg.id AND game_slug = 'flip7') as flip7_count
+               (SELECT COUNT(*) FROM skyjo_games WHERE group_id = pg.id AND type = 'Skyjo Action') as skyjo_action_count
         FROM player_groups pg
         LEFT JOIN group_users gu ON pg.id = gu.group_id AND gu.user_id = ?
         WHERE pg.id IN (
@@ -447,7 +447,18 @@ def groups_list():
         ORDER BY pg.name
     ''', (user['id'], user['id'], user['id'])).fetchall()
 
-    return render_template('groups.html', groups=groups, user=user)
+    # Nombre de parties par groupe et par jeu, dans l'ordre d'affichage
+    generic_counts = {}
+    for row in db.execute('SELECT group_id, game_slug, COUNT(*) as cnt FROM game_sessions GROUP BY group_id, game_slug'):
+        generic_counts[(row['group_id'], row['game_slug'])] = row['cnt']
+    game_counts = {
+        g['id']: [('Skyjo', g['skyjo_count']), ('Skyjo Action', g['skyjo_action_count'])] +
+                 [(game['name'], generic_counts.get((g['id'], game['slug']), 0)) for game in GENERIC_GAMES]
+        for g in groups
+    }
+
+    return render_template('groups.html', groups=groups, game_counts=game_counts,
+                           generic_games=GENERIC_GAMES, user=user)
 
 
 @app.route('/groups/new', methods=['GET', 'POST'])
@@ -536,16 +547,17 @@ def group_detail(group_id):
         ORDER BY g.created_at DESC
         LIMIT 10
     ''', (group_id,)).fetchall()
-    flip7_games = db.execute('''
-        SELECT gs.id, gs.created_at, gs.finished, 'Flip 7' as game_name,
+    generic_games = [g for g in db.execute('''
+        SELECT gs.id, gs.created_at, gs.finished, gs.game_slug,
                (SELECT GROUP_CONCAT(player_name, ', ') FROM session_players WHERE session_id = gs.id) as player_names
         FROM game_sessions gs
-        WHERE gs.group_id = ? AND gs.game_slug = 'flip7'
+        WHERE gs.group_id = ?
         ORDER BY gs.created_at DESC
         LIMIT 10
-    ''', (group_id,)).fetchall()
+    ''', (group_id,)).fetchall() if g['game_slug'] in GAMES_BY_SLUG]
     games = [dict(g, url=f"/skyjo/game/{g['id']}") for g in skyjo_games] + \
-            [dict(g, url=f"/familyboardgame/flip7/game/{g['id']}") for g in flip7_games]
+            [dict(g, game_name=GAMES_BY_SLUG[g['game_slug']]['name'],
+                  url=f"{GAMES_BY_SLUG[g['game_slug']]['url']}/game/{g['id']}") for g in generic_games]
     games = sorted(games, key=lambda g: g['created_at'] or '', reverse=True)[:10]
 
     # Récupérer le rôle de l'utilisateur dans ce groupe
@@ -557,7 +569,7 @@ def group_detail(group_id):
 
     return render_template('group_detail.html',
                            group=group, members=members, users=users,
-                           games=games, user=user, is_admin=is_admin(user),
+                           games=games, generic_games=GENERIC_GAMES, user=user, is_admin=is_admin(user),
                            user_role=user_role)
 
 
@@ -823,10 +835,14 @@ def stats_menu():
         ''', (game_type,) + group_params).fetchone()
         rounds_count[game_type] = count_rounds['cnt']
 
-    # Jeux génériques (Flip 7)
-    flip7_count = db.execute(f'''
-        SELECT COUNT(*) as cnt FROM game_sessions g WHERE g.game_slug = 'flip7' {group_filter}
-    ''', group_params).fetchone()['cnt']
+    # Jeux génériques : uniquement ceux qui ont au moins une partie
+    generic_stats = []
+    for game in GENERIC_GAMES:
+        count = db.execute(f'''
+            SELECT COUNT(*) as cnt FROM game_sessions g WHERE g.game_slug = ? {group_filter}
+        ''', (game['slug'],) + group_params).fetchone()['cnt']
+        if count:
+            generic_stats.append(dict(game, count=count))
 
     # Récupérer le nom du groupe sélectionné
     selected_group = None
@@ -834,7 +850,7 @@ def stats_menu():
         selected_group = db.execute('SELECT * FROM player_groups WHERE id = ?', (group_id,)).fetchone()
 
     return render_template('stats_menu.html',
-                          flip7_count=flip7_count,
+                          generic_stats=generic_stats,
                           game_types=game_types,
                           games_count=games_count,
                           rounds_count=rounds_count,

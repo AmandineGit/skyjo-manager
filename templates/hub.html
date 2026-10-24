@@ -11,21 +11,6 @@
             margin: 0 auto;
             padding: 20px;
         }
-        .hub-header {
-            text-align: center;
-            margin-bottom: 40px;
-            padding: 20px 0;
-            border-bottom: 2px solid #007bff;
-        }
-        .hub-header h1 {
-            margin: 0 0 10px 0;
-            color: #333;
-        }
-        .user-welcome {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 20px;
-        }
         .stats-overview {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -109,29 +94,11 @@
         .btn-play:hover {
             background: #0056b3;
         }
-        /* Page multi-jeux générique : pas de bandeau publicitaire Skyjo */
-        body::before {
-            content: none;
-        }
     </style>
 </head>
-<body>
+<body class="hub-page">
     <div class="hub-container">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div></div>
-            <div class="user-menu">
-                {% if session.get('user_email') == 'admin@skyjo.local' %}
-                <a href="/familyboardgame/admin" class="button button-secondary" style="margin: 0;">⚙ Admin</a>
-                {% endif %}
-                <a href="/familyboardgame/profile" class="button button-secondary" style="margin: 0;">👤 {{ session.get('user_name', 'Profil') }}</a>
-                <a href="/familyboardgame/logout" class="button button-danger" style="margin: 0;">Déconnexion</a>
-            </div>
-        </div>
-
-        <div class="hub-header">
-            <h1>🎮 Family board games</h1>
-            <p class="user-welcome">Bienvenue, <strong>{{ user['player_name'] or user['email'] }}</strong></p>
-        </div>
+        {% include '_hub_header.html' %}
 
         <h2 style="margin-top: 30px; margin-bottom: 20px;">Jeux disponibles</h2>
         <div class="games-grid">

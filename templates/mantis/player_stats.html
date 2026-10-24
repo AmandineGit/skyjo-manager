@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stats {{ player.name }} — Mantis</title>
+  <link rel="stylesheet" href="/familyboardgame/static/style.css">
+</head>
+<body class="mantis">
+  <div class="page-content">
+  <div style="margin-bottom: 20px;">
+    <a href="{{ stats_url }}" class="button button-secondary">← Retour aux stats Mantis</a>
+  </div>
+  <h1>📊 {{ player.name }}</h1>
+  <p style="font-size: 1rem; color: #666; margin-bottom: 25px;">
+    Mantis · {{ player.games }} partie{{ 's' if player.games > 1 else '' }} jouée{{ 's' if player.games > 1 else '' }}
+    · {{ player.finished_games }} terminée{{ 's' if player.finished_games > 1 else '' }}
+  </p>
+
+  <!-- Tuiles Metro style -->
+  <section class="metro-tiles">
+    <!-- Tuile Moyenne -->
+    <div class="metro-tile tile-player-mean">
+      <div class="tile-header">
+        <span class="tile-icon">📊</span>
+        <span class="tile-title">Moyenne</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ '%.1f'|format(player.avg) }}</div>
+        <div class="tile-main-label">cartes par partie</div>
+        <div class="tile-secondary-value">Médiane : {{ player.median }}</div>
+      </div>
+    </div>
+
+    <!-- Tuile Victoires -->
+    <div class="metro-tile tile-podium">
+      <div class="tile-header">
+        <span class="tile-icon">🏆</span>
+        <span class="tile-title">Victoires</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ player.wins }}</div>
+        <div class="tile-main-label">victoire{{ 's' if player.wins > 1 else '' }}</div>
+        <div class="tile-details">{{ player.win_rate }} % des parties terminées</div>
+      </div>
+    </div>
+
+    <!-- Tuile Meilleure partie -->
+    <div class="metro-tile tile-player-top">
+      <div class="tile-header">
+        <span class="tile-icon">🌈</span>
+        <span class="tile-title">Meilleure partie</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ player.best_game if player.best_game is not none else '—' }}</div>
+        <div class="tile-main-label">cartes</div>
+        <div class="tile-details">Score final le plus haut</div>
+      </div>
+    </div>
+
+    <!-- Tuile Gros coup -->
+    <div class="metro-tile tile-best">
+      <div class="tile-header">
+        <span class="tile-icon">💎</span>
+        <span class="tile-title">Gros coup</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ player.best_move or '—' }}</div>
+        <div class="tile-main-label">cartes marquées d'un coup</div>
+        {% if player.best_move_session %}<div class="tile-details">Partie #{{ player.best_move_session }}</div>{% endif %}
+      </div>
+    </div>
+
+    <!-- Tuile Vols -->
+    <div class="metro-tile tile-mantis-steal">
+      <div class="tile-header">
+        <span class="tile-icon">🦐</span>
+        <span class="tile-title">Vols</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ player.steals }}</div>
+        <div class="tile-main-label">vol{{ 's' if player.steals > 1 else '' }} réussi{{ 's' if player.steals > 1 else '' }}</div>
+        <div class="tile-details">{{ player.steals_per_game }} par partie</div>
+      </div>
+    </div>
+
+    <!-- Tuile Sprints -->
+    <div class="metro-tile tile-precoce">
+      <div class="tile-header">
+        <span class="tile-icon">🏃</span>
+        <span class="tile-title">Sprints</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ player.sprints }}</div>
+        <div class="tile-main-label">fois premier au seuil</div>
+        <div class="tile-details">10 cartes (15 à deux)</div>
+      </div>
+    </div>
+
+    <!-- Tuile Ancienneté -->
+    {% if player.first_game_date %}
+    <div class="metro-tile tile-player-seniority">
+      <div class="tile-header">
+        <span class="tile-icon">📅</span>
+        <span class="tile-title">Ancienneté</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value" style="font-size: 1.5rem;">{{ player.first_game_date|format_date_fr }}</div>
+        <div class="tile-main-label">première partie</div>
+        <div class="tile-secondary-value">Mantis</div>
+      </div>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- Co-joueurs fréquents -->
+  {% if player.frequent_players %}
+  <section class="player-coplayers-section">
+    <h2>👥 Co-joueurs fréquents</h2>
+    <div class="coplayers-grid">
+      {% for cp in player.frequent_players %}
+      <div class="coplayer-card">
+        <div class="coplayer-name">{{ cp.player }}</div>
+        <div class="coplayer-count">{{ cp.games }} partie{{ 's' if cp.games > 1 else '' }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <div style="margin-top: 30px;">
+    <a href="{{ stats_url }}" class="button">← Retour aux stats Mantis</a>
+  </div>
+  <a href="/familyboardgame/stats{% if group_id %}?group={{ group_id }}{% endif %}" class="back-button">← Menu stats</a>
+  </div>
+</body>
+</html>

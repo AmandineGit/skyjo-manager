@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Partie #{{ game['id'] }} — Mantis</title>
+  <link rel="stylesheet" href="/familyboardgame/static/style.css">
+</head>
+<body class="mantis">
+  <div class="page-content">
+  {% set totals = state.totals %}
+
+  <h1>🦐 Partie #{{ game['id'] }}</h1>
+  <p style="font-size: 1rem; color: #666; margin-bottom: 20px;">
+    Mantis — {{ game['created_at']|format_date_fr }} · {{ players|length }} joueurs ·
+    on joue jusqu'à épuisement de la pioche, le plus de cartes gagne
+    {% if not game['finished'] %}
+      <span style="color: #43e97b; font-weight: 600;"> • En cours</span>
+    {% else %}
+      <span style="color: #e74c3c; font-weight: 600;"> • Terminée</span>
+    {% endif %}
+  </p>
+
+  {% with messages = get_flashed_messages() %}
+    {% for message in messages %}
+      <div class="flash-message">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  {% if game_winners %}
+  <div class="m-winner-banner">
+    🏆 {{ 'Gagnant' if game_winners|length == 1 else 'Ex æquo' }} : {{ game_winners|join(', ') }} — {{ totals[game_winners[0]] }} cartes
+    {% if state.tanks %}
+    <br><small>Départage au tank :
+      {% for p, tank in state.tanks.items() %}{{ p }} {{ tank }}{{ ', ' if not loop.last }}{% endfor %}</small>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="m-players">
+    {% for p in players %}
+    {% set i = loop.index0 %}
+    <div class="m-player{% if p in top %} leader{% endif %}{% if p in game_winners %} winner{% endif %}" id="player-{{ i }}">
+      <div class="m-head">
+        <span class="m-name">{% if p in top %}👑 {% endif %}{{ p }}</span>
+        <span class="m-steals">🦐 {{ state.steals[p] }} vol{{ 's' if state.steals[p] > 1 }}</span>
+      </div>
+      <div class="m-score">{{ totals[p] }}<small> carte{{ 's' if totals[p] > 1 }}</small></div>
+      <div class="m-sprint">{% if state.sprinter == p %}🏃 Premier à {{ threshold }} cartes{% endif %}</div>
+      <div class="m-progress">
+        <div style="width: {{ (totals[p] * 100 / scale)|round(1) }}%;"></div>
+        <span class="m-mark" style="left: {{ (threshold * 100 / scale)|round(1) }}%;" title="Repère {{ threshold }} cartes"></span>
+      </div>
+
+      {% if not game['finished'] and can_edit %}
+      <form method="post" action="{{ base_url }}/game/{{ game['id'] }}/action#player-{{ i }}" class="m-actions">
+        <input type="hidden" name="player" value="{{ p }}">
+        <div class="m-free">
+          <input name="count" type="number" min="1" max="99" inputmode="numeric" placeholder="Cartes marquées" aria-label="Cartes marquées par {{ p }}">
+          {# Premier bouton du formulaire : c'est lui que déclenche la touche Entrée #}
+          <button type="submit" name="action" value="score" class="m-plus">✓ Marquer</button>
+        </div>
+        <button type="submit" name="action" value="steal" class="m-steal">🦐 Vol réussi</button>
+      </form>
+
+      <details class="m-edit">
+        <summary>✏️ Corriger</summary>
+        <form method="post" action="{{ base_url }}/game/{{ game['id'] }}/action#player-{{ i }}">
+          <input type="hidden" name="player" value="{{ p }}">
+          <input type="hidden" name="action" value="fix">
+          <label>Cartes <input name="cards" type="number" min="0" inputmode="numeric" value="{{ totals[p] }}"></label>
+          <label>Vols <input name="steals" type="number" min="0" inputmode="numeric" value="{{ state.steals[p] }}"></label>
+          <button type="submit" class="button button-small">Enregistrer</button>
+        </form>
+      </details>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="m-toolbar">
+    {% if not game['finished'] and can_edit %}
+      {% if has_actions %}
+      <form method="post" action="{{ base_url }}/game/{{ game['id'] }}/undo" class="inline-form">
+        <button type="submit" class="button button-secondary">↶ Annuler la dernière action</button>
+      </form>
+      {% endif %}
+      <form method="post" action="{{ base_url }}/game/{{ game['id'] }}/finish" class="inline-form"
+            onsubmit="return confirm('La pioche est vide : terminer la partie ?');">
+        <button type="submit" class="button" style="background: linear-gradient(135deg, #fc5c7d 0%, #6a82fb 100%);">🏁 Pioche vide : fin de partie</button>
+      </form>
+    {% endif %}
+    <a href="{{ base_url }}/rules" target="_blank" class="button button-rules">Voir les règles</a>
+  </div>
+
+  {% if game['finished'] %}
+  <div style="text-align: center; margin: 20px 0;">
+    <a href="{{ base_url }}/new?group={{ game['group_id'] }}" class="button">➕ Nouvelle partie</a>
+  </div>
+  {% endif %}
+
+  <h2 style="margin-top: 30px;">📜 Déroulé de la partie</h2>
+  <ul class="m-log">
+    {% for e in log %}
+    <li>
+      <span class="m-log-time">{{ e.created_at|format_ts }}</span> —
+      {% if e.type == 'steal' %}<strong>{{ e.player }}</strong> réussit un vol 🦐
+      {% elif e.type == 'fix' %}✏️ <strong>{{ e.player }}</strong> corrigé
+        ({{ '%+d'|format(e.score) }} carte{{ 's' if e.score|abs > 1 }}{% if e.steals %}, {{ '%+d'|format(e.steals) }} vol{{ 's' if e.steals|abs > 1 }}{% endif %})
+      {% elif e.type == 'tank' %}⚖️ Départage : tank de <strong>{{ e.player }}</strong> = {{ e.tank }} cartes
+      {% else %}<strong>{{ e.player }}</strong> marque {{ e.score }} carte{{ 's' if e.score > 1 }}
+      {% endif %}
+    </li>
+    {% else %}
+    <li class="m-log-empty">Aucune action pour l'instant</li>
+    {% endfor %}
+  </ul>
+
+  <a href="{{ base_url }}/" class="back-button">← Parties Mantis</a>
+
+  {% if is_admin %}
+  <div style="margin-top: 20px; text-align: center;">
+    {% if game['finished'] %}
+    <form method="post" action="{{ base_url }}/game/{{ game['id'] }}/reopen" class="inline-form"
+          onsubmit="return confirm('Reprendre cette partie ?');">
+      <button type="submit" class="button button-secondary">↺ Reprendre la partie</button>
+    </form>
+    {% endif %}
+    <form method="post" action="{{ base_url }}/game/{{ game['id'] }}/delete" class="inline-form"
+          onsubmit="return confirm('Supprimer définitivement cette partie ?');">
+      <button type="submit" class="button button-danger">🗑 Supprimer la partie</button>
+    </form>
+  </div>
+  {% endif %}
+  </div>
+</body>
+</html>

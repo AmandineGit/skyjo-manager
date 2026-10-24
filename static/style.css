@@ -113,6 +113,21 @@ body {
   }
 }
 
+/* Pages communes (accueil, stats, groupes) : en-tête Family board games, sans bandeau de jeu */
+body.hub-page::before { content: none; }
+body.hub-page .page-content { margin-top: 20px !important; }
+.hub-topbar { display: flex; justify-content: flex-end; }
+.hub-header {
+  text-align: center;
+  margin-bottom: 30px;
+  padding: 20px 0;
+  border-bottom: 2px solid #007bff;
+}
+.hub-header h1 { margin: 0 0 10px 0; color: #333; }
+.hub-header h1 a { color: inherit; text-decoration: none; }
+.user-welcome { font-size: 14px; color: #666; margin-bottom: 0; }
+.hub-page-title { font-size: 1.6rem; }
+
 /* Back button bottom-right inside page content */
 .back-button {
   position: absolute;
@@ -2023,3 +2038,45 @@ body.flip7::before { background-image: url('/familyboardgame/images/Flip7-quatro
 .tile-f7-flip7 { background: linear-gradient(135deg, #0fa3a3 0%, #f5b400 100%); }
 .tile-f7-stop { background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); }
 .tile-f7-prudent { background: linear-gradient(135deg, #5ee7df 0%, #4a6fa5 100%); }
+
+/* ===================== Mantis ===================== */
+body.mantis::before { background-image: url('/familyboardgame/images/mantis-materiel-de-jeu.png'); }
+
+.m-players { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.m-player { background: white; border-radius: 10px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-top: 5px solid #e84f8a; }
+.m-player.leader { box-shadow: 0 0 0 3px #f5b400, 0 2px 8px rgba(0,0,0,0.1); }
+.m-player.winner { background: #fff8e1; }
+.m-head { display: flex; justify-content: space-between; align-items: baseline; }
+.m-name { font-weight: 700; font-size: 1.15rem; }
+.m-steals { font-size: 0.85rem; color: #666; }
+.m-score { font-size: 3rem; font-weight: 800; color: #e84f8a; text-align: center; line-height: 1.1; margin: 6px 0 2px; }
+.m-score small { font-size: 1rem; color: #888; font-weight: 400; }
+.m-sprint { font-size: 0.8rem; color: #e67e22; font-weight: 700; text-align: center; min-height: 1em; }
+.m-progress { position: relative; height: 8px; background: #eee; border-radius: 4px; overflow: hidden; margin: 6px 0 12px; }
+.m-progress div { height: 100%; background: linear-gradient(90deg, #f5576c, #f5b400, #43e97b, #4facfe, #a76bd8); }
+.m-progress .m-mark { position: absolute; top: 0; bottom: 0; width: 2px; background: #333; opacity: .5; }
+.m-actions { display: flex; flex-direction: column; gap: 6px; }
+.m-free { display: flex; gap: 6px; }
+.m-free input { flex: 1; min-width: 0; padding: 10px; font-size: 1.1rem; text-align: center; border: 1px solid #ccc; border-radius: 4px; }
+.m-actions button { margin: 0; padding: 12px 14px; font-weight: 700; }
+.m-plus { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+.m-steal { background: linear-gradient(135deg, #a76bd8 0%, #4facfe 100%); }
+.m-edit { margin-top: 8px; font-size: 0.9rem; }
+.m-edit summary { cursor: pointer; color: #555; display: inline-block; padding: 4px 10px; border: 1px solid #ccd5df; border-radius: 14px; background: #f7f9fb; }
+.m-edit form { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-top: 8px; }
+.m-edit label { display: flex; flex-direction: column; font-size: 0.8rem; color: #555; }
+.m-edit input { width: 70px; padding: 6px; font-size: 1rem; text-align: center; border: 1px solid #ccc; border-radius: 4px; }
+.m-winner-banner { text-align: center; background: linear-gradient(135deg, #f39c12, #e67e22); color: white; font-weight: 700; font-size: 1.3rem; padding: 16px; border-radius: 10px; margin-bottom: 16px; }
+.m-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; align-items: center; }
+.m-toolbar form { margin: 0; }
+.m-log { background: white; border-radius: 8px; padding: 12px 16px; max-height: 260px; overflow-y: auto; }
+.m-log li { border-bottom: 1px solid #f0f0f0; padding: 4px 0; font-size: 0.95rem; }
+.m-log-time { color: #888; font-size: 0.85rem; }
+.m-log-empty { color: #888; }
+.m-tiebreak { display: flex; flex-direction: column; gap: 14px; max-width: 420px; }
+.m-tiebreak label { display: flex; flex-direction: column; gap: 6px; }
+.m-tiebreak input { padding: 10px; font-size: 1.2rem; border: 1px solid #ccc; border-radius: 4px; }
+
+/* Statistiques : couleurs des dalles propres à Mantis */
+.tile-mantis-steal { background: linear-gradient(135deg, #a76bd8 0%, #4facfe 100%); }
+.tile-mantis-collect { background: linear-gradient(135deg, #f5576c 0%, #f5b400 50%, #43e97b 100%); }

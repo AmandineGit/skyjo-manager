@@ -1,8 +1,10 @@
 # Skyjo Manager
 
 ## Contexte
-Application Flask de gestion de scores, initialement dédiée au jeu Skyjo.
-Déployée en prod sur digital-pragma.fr (Gunicorn + Apache reverse proxy, préfixe /skyjo/).
+Application Flask « Family board games » de gestion de scores, initialement dédiée au jeu Skyjo,
+aujourd'hui multi-jeux : Skyjo, Flip 7, Mantis (Qwirkle prévu ensuite).
+Déployée en prod sur digital-pragma.fr (Gunicorn + Apache reverse proxy,
+préfixes /familyboardgame/ pour la plateforme et les nouveaux jeux, /skyjo/ pour Skyjo).
 
 ## Objectif d'évolution
 Transformer l'app en plateforme générique de gestion de scores/statistiques
@@ -16,10 +18,10 @@ Approche progressive, pas de sur-ingénierie :
    seulement si l'usage le justifie
 
 ## Schéma de données
-⚠️ Le schéma actuel est pensé pour Skyjo uniquement (voir core/db.py : tables communes + tables skyjo_*).
-Avant d'ajouter un nouveau jeu, réfléchir à une structure générique
-(ex: table `games`, `sessions`, `scores` flexible) plutôt que dupliquer
-la logique Skyjo. Ne pas migrer le schéma existant sans validation explicite,
+Voir core/db.py. Les nouveaux jeux utilisent les tables génériques
+game_sessions / session_players / session_scores (game_slug + détail JSON dans details) :
+ne pas créer de tables par jeu. Skyjo reste sur ses tables historiques skyjo_*.
+Ne pas migrer le schéma existant (dont Skyjo vers les tables génériques) sans validation explicite,
 l'historique de parties doit être préservé.
 
 ## Environnement de dev local (WSL2 Ubuntu, ThinkPad)
@@ -38,11 +40,13 @@ l'historique de parties doit être préservé.
 
 ## Architecture
 - `app.py` : routes communes (hub, auth, groupes, stats, admin), servies sous /familyboardgame/
-- `core/` : db.py (schéma + migrations légères au démarrage), auth.py
-- `games/<jeu>/routes.py` : un blueprint par jeu (Skyjo : préfixe interne /play ;
-  Flip 7 : /flip7, servi sous /familyboardgame/flip7/ sans règle Apache dédiée)
-- Jeux autres que Skyjo : tables génériques game_sessions / session_players / session_scores
-  (détail de manche spécifique au jeu en JSON dans session_scores.details) ; Skyjo reste sur skyjo_*
+- `core/` : db.py (schéma + migrations légères au démarrage), auth.py, groups.py (joueurs + groupe
+  à la création de partie), sessions.py (accès communs aux parties des jeux génériques)
+- `games/<jeu>/` : un blueprint par jeu (Skyjo : préfixe interne /play ; Flip 7 /flip7 et Mantis /mantis,
+  servis sous /familyboardgame/<jeu>/ sans règle Apache dédiée), règles de score et stats sans Flask
+- `games/registry.py` : liste des jeux génériques lue par le hub, les stats et les groupes ;
+  ajouter un jeu = blueprint + entrée dans le registre (voir README « Ajouter un jeu »)
+- Pages communes : en-tête `templates/_hub_header.html` + `<body class="hub-page">` (pas de bandeau de jeu)
 - `scripts/` : scripts de maintenance ponctuels
 - Les liens utilisent les URLs publiques en dur (/familyboardgame/..., /skyjo/...)
 

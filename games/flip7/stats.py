@@ -5,6 +5,7 @@ import json
 from statistics import median
 from collections import defaultdict
 
+from core.sessions import frequent_coplayers, first_game_date
 from games.flip7.scoring import FLIP7_BONUS
 
 # Nombre minimum de manches pour figurer dans les palmarès en pourcentage
@@ -137,18 +138,11 @@ def compute_player_stats(player, sessions, session_players, score_rows):
     base = next(p for p in compute_stats(sessions, session_players, score_rows)['players'] if p['name'] == player)
 
     top = max(rows, key=lambda r: r['score'])
-    my_sessions = {sp['session_id'] for sp in session_players if sp['player_name'] == player}
-    coplayers = defaultdict(int)
-    for sp in session_players:
-        if sp['session_id'] in my_sessions and sp['player_name'] != player:
-            coplayers[sp['player_name']] += 1
-    dates = [s['created_at'] for s in sessions if s['id'] in my_sessions and s.get('created_at')]
 
     return {
         **base,
         'median': median(r['score'] for r in rows),
         'top': {'score': top['score'], 'round_number': top.get('round_number'), 'session_id': top['session_id']},
-        'first_game_date': min(dates) if dates else None,
-        'frequent_players': [{'player': name, 'games': n} for name, n in
-                             sorted(coplayers.items(), key=lambda kv: (-kv[1], kv[0]))[:3]],
+        'first_game_date': first_game_date(player, sessions, session_players),
+        'frequent_players': frequent_coplayers(player, session_players),
     }

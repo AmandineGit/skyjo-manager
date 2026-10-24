@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Statistiques — Skyjo</title>
+  <title>Statistiques — Family board games</title>
   <link rel="stylesheet" href="/familyboardgame/static/style.css">
 </head>
-<body>
+<body class="hub-page">
   <div class="page-content">
-  <a href="/familyboardgame/" class="button button-secondary" style="margin-bottom: 10px;">← Menu principal</a>
-  <h1>Statistiques</h1>
+  {% include '_hub_header.html' %}
+  <h2 class="hub-page-title">Statistiques</h2>
 
   <!-- Sélecteur de groupe -->
   <div class="stats-filter">
@@ -49,16 +49,16 @@
       <p class="stats-card-rounds">{{ rounds_count[game_type] }} round{{ 's' if rounds_count[game_type] > 1 else '' }}</p>
     </a>
     {% endfor %}
-    {% if flip7_count %}
-    <a href="/familyboardgame/flip7/stats{% if group_id %}?group={{ group_id }}{% endif %}" class="stats-card">
-      <img src="/familyboardgame/images/Flip7.webp" alt="Flip 7" class="stats-card-img">
-      <h2>Flip 7</h2>
-      <p>{{ flip7_count }} partie{{ 's' if flip7_count > 1 else '' }}</p>
+    {% for game in generic_stats %}
+    <a href="{{ game.url }}/stats{% if group_id %}?group={{ group_id }}{% endif %}" class="stats-card">
+      <img src="{{ game.image }}" alt="{{ game.name }}" class="stats-card-img">
+      <h2>{{ game.name }}</h2>
+      <p>{{ game.count }} partie{{ 's' if game.count > 1 else '' }}</p>
     </a>
-    {% endif %}
+    {% endfor %}
   </div>
 
-  {% if not game_types and not flip7_count %}
+  {% if not game_types and not generic_stats %}
   <div class="empty-state">
     <div class="empty-icon">📊</div>
     <h2>Aucune statistique</h2>

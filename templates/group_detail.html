@@ -6,9 +6,10 @@
   <title>{{ group.name }} — Family board games</title>
   <link rel="stylesheet" href="/familyboardgame/static/style.css">
 </head>
-<body>
+<body class="hub-page">
   <div class="page-content">
-    <h1>{{ group.name }}</h1>
+  {% include '_hub_header.html' %}
+  <h2 class="hub-page-title">{{ group.name }}</h2>
 
     {% with messages = get_flashed_messages() %}
       {% if messages %}
@@ -115,7 +116,9 @@
 
     <div class="page-actions">
       <a href="/skyjo/new?group={{ group.id }}" class="button button-submit">+ Partie de Skyjo</a>
-      <a href="/familyboardgame/flip7/new?group={{ group.id }}" class="button button-submit">+ Partie de Flip 7</a>
+      {% for game in generic_games %}
+      <a href="{{ game.url }}/new?group={{ group.id }}" class="button button-submit">+ Partie de {{ game.name }}</a>
+      {% endfor %}
       <a href="/familyboardgame/stats?group={{ group.id }}" class="button">Statistiques</a>
       <a href="/familyboardgame/groups" class="button button-secondary">← Mes groupes</a>
     </div>
