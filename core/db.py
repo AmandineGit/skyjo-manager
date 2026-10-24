@@ -160,7 +160,7 @@ def init_db(reset=False):
         db.execute("INSERT INTO game_rules (game_type, rules_pdf) VALUES (?, ?)",
                    ('Skyjo', '88-skyjo-regle.pdf'))
         db.execute("INSERT INTO game_rules (game_type, rules_pdf) VALUES (?, ?)",
-                   ('Skyjo Action', '88-skyjo-regle.pdf'))
+                   ('Skyjo Action', 'skyjo_action_regles_fr.pdf'))
         db.commit()
 
 
