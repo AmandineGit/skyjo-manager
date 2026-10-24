@@ -2,7 +2,7 @@
 
 ## Contexte
 Application Flask « Family board games » de gestion de scores, initialement dédiée au jeu Skyjo,
-aujourd'hui multi-jeux : Skyjo, Flip 7, Mantis (Qwirkle prévu ensuite).
+aujourd'hui multi-jeux : Skyjo, Flip 7, Mantis, Qwirkle.
 Déployée en prod sur digital-pragma.fr (Gunicorn + Apache reverse proxy,
 préfixes /familyboardgame/ pour la plateforme et les nouveaux jeux, /skyjo/ pour Skyjo).
 
@@ -41,12 +41,16 @@ l'historique de parties doit être préservé.
 ## Architecture
 - `app.py` : routes communes (hub, auth, groupes, stats, admin), servies sous /familyboardgame/
 - `core/` : db.py (schéma + migrations légères au démarrage), auth.py, groups.py (joueurs + groupe
-  à la création de partie), sessions.py (accès communs aux parties des jeux génériques)
-- `games/<jeu>/` : un blueprint par jeu (Skyjo : préfixe interne /play ; Flip 7 /flip7 et Mantis /mantis,
+  à la création de partie), sessions.py (accès communs aux parties génériques), game_routes.py
+  (routes communes : liste, nouvelle partie, suppression, règles, stats), stats.py (dalles, profil joueur)
+- `games/<jeu>/` : un blueprint par jeu (Skyjo : préfixe interne /play ; Flip 7, Mantis, Qwirkle : /<jeu>,
   servis sous /familyboardgame/<jeu>/ sans règle Apache dédiée), règles de score et stats sans Flask
 - `games/registry.py` : liste des jeux génériques lue par le hub, les stats et les groupes ;
   ajouter un jeu = blueprint + entrée dans le registre (voir README « Ajouter un jeu »)
 - Pages communes : en-tête `templates/_hub_header.html` + `<body class="hub-page">` (pas de bandeau de jeu)
+- Piège CSS : `.rounds-table` passe en cartes sur mobile (thead masqué) ; chaque `td` doit avoir un `data-label`
+- Tests : `python -m pytest` (base temporaire, jamais skyjo.db) ; ajouter un scénario par nouveau jeu
+  dans tests/test_games_common.py
 - `scripts/` : scripts de maintenance ponctuels
 - Les liens utilisent les URLs publiques en dur (/familyboardgame/..., /skyjo/...)
 

@@ -2,6 +2,28 @@
 
 ## [Non publié]
 
+### Qwirkle
+- Nouveau jeu **Qwirkle** sous `/familyboardgame/qwirkle/` : saisie tour par tour avec rotation automatique des joueurs,
+  compteur de Qwirkles par tour (plusieurs possibles sur une même pose, +6 points chacun ajoutés automatiquement) et échange de tuiles, feuille de score avec modification d'un tour, annulation du dernier tour,
+  fin de partie avec bonus de 6 points, règles officielles en images (calcul des points et exemples compris), stats en dalles et page par joueur
+- Feuille de score en grille (noms des joueurs en en-tête, totaux en bas), lisible sur mobile, largeur limitée sur PC
+- Stockage dans les tables génériques existantes (une ligne par tour) : aucune nouvelle table
+
+### Refactoring et tests
+- Routes communes des jeux génériques regroupées dans `core/game_routes.py` (liste des parties, nouvelle partie,
+  suppression, règles, statistiques, page joueur) : chaque jeu ne garde que sa page de partie et sa saisie
+- Ajout / annulation de score communs (`core/sessions.py`), dalles de palmarès et profil joueur communs (`core/stats.py`)
+- Templates communs `_game_index.html` (liste des parties) et `_game_stats.html` (page de stats étendue par chaque jeu)
+- Anciens tests Skyjo v1, cassés depuis le découpage en modules, remplacés par `tests/test_skyjo.py` (dont doublement
+  du finisher et fin à 100 points) ; nouveau `tests/test_games_common.py` ; toute la suite passe avec `python -m pytest`
+- Imports inutilisés supprimés (pyflakes propre)
+- Flip 7 : la liste des parties indique tous les joueurs à égalité en tête
+
+### Corrections
+- Groupes : le compte admin n'apparaît plus dans « Comptes liés » (il y était rattaché à la création d'un groupe
+  et par la migration v1) et n'est plus ajouté comme propriétaire des nouveaux groupes ; il voit toujours tous les groupes
+- Flip 7 : sur mobile, l'historique des manches affiche de nouveau le nom du joueur dans chaque carte (`data-label`)
+
 ### Mantis
 - Nouveau jeu **Mantis** sous `/familyboardgame/mantis/` : compteur en direct (cartes marquées, vols réussis, ✏️ correction,
   ↶ annulation), règle maison « jusqu'à épuisement de la pioche » avec départage au tank en cas d'égalité,

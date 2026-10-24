@@ -1,7 +1,7 @@
 # Family Board Game
 
 Application web de suivi de scores et de statistiques pour jeux de société.
-Initialement dédiée à **Skyjo**, elle est devenue multi-jeux : **Skyjo**, **Flip 7** et **Mantis**.
+Initialement dédiée à **Skyjo**, elle est devenue multi-jeux : **Skyjo**, **Flip 7**, **Mantis** et **Qwirkle**.
 
 ![Python](https://img.shields.io/badge/python-3.10+-green)
 ![Flask](https://img.shields.io/badge/flask-3.0.0-lightgrey)
@@ -58,6 +58,19 @@ En production sur `digital-pragma.fr` (Gunicorn + Apache en reverse proxy).
   page de stats par joueur (moyenne et médiane de cartes, victoires, meilleure partie, gros coup, vols, sprints,
   ancienneté, co-joueurs fréquents)
 
+### Qwirkle (`/familyboardgame/qwirkle/`)
+- **Saisie tour par tour** : on entre les points du joueur dont c'est le tour, la main passe automatiquement
+  au suivant ; toucher la carte d'un joueur le désigne comme joueur en cours
+- On saisit les **points des lignes** (1 par tuile) ; le compteur **⭐ Qwirkle** ajoute automatiquement **6 points par Qwirkle**
+  (une même pose peut terminer plusieurs lignes de 6), avec le total du tour affiché en direct ; bouton **🔄 Échange de tuiles** (0 point)
+- **Feuille de score** façon papier : grille tours × joueurs avec le nom des joueurs en en-tête et les totaux en bas,
+  lisible aussi sur mobile (largeur limitée sur PC) ; toucher un score pour le **✏️ modifier**, **↶ Annuler le dernier tour**
+- **🏁 Fin de partie** : bonus de 6 points au joueur qui a vidé sa main en premier (ou « personne » si partie bloquée) ;
+  le plus haut score gagne, égalité = ex aequo ; reprise d'une partie terminée réservée à l'admin
+- Règles officielles en images (`images/ReglesQwirkle*.png` : déroulement, calcul des points, fin de partie, exemples)
+- Statistiques en dalles : podium, Roi du Qwirkle, Gros Tour, Régulier (moyenne par tour, 5 tours minimum),
+  Finisseur, Brasseur (échanges), parties et joueurs ; page de stats par joueur
+
 ## Architecture
 
 ```
@@ -67,7 +80,9 @@ skyjo-manager/
 │   ├── db.py               # Connexion SQLite, création du schéma, migrations légères
 │   ├── auth.py             # require_auth, get_current_user, is_admin, get_user_group_ids
 │   ├── groups.py           # Joueurs + groupe à la création d'une partie (tous jeux)
-│   └── sessions.py         # Accès communs aux parties des jeux génériques (accès, création, stats, co-joueurs)
+│   ├── sessions.py         # Accès communs aux parties génériques (droits, création, ajout/annulation de score, données de stats)
+│   ├── game_routes.py      # Routes communes des jeux génériques (liste, nouvelle partie, suppression, règles, stats)
+│   └── stats.py            # Briques de stats communes (dalle de palmarès, profil joueur)
 ├── games/
 │   ├── registry.py         # Liste des jeux génériques (nom, URL, image) lue par le hub, les stats et les groupes
 │   ├── skyjo/
@@ -76,12 +91,17 @@ skyjo-manager/
 │   │   ├── routes.py       # Blueprint Flip 7 (préfixe interne /flip7)
 │   │   ├── scoring.py      # Règles de score, sans Flask
 │   │   └── stats.py        # Calcul des statistiques, sans Flask
-│   └── mantis/
-│       ├── routes.py       # Blueprint Mantis (préfixe interne /mantis)
-│       ├── scoring.py      # Journal d'actions rejoué, gagnant et départage, sans Flask
+│   ├── mantis/
+│   │   ├── routes.py       # Blueprint Mantis (préfixe interne /mantis)
+│   │   ├── scoring.py      # Journal d'actions rejoué, gagnant et départage, sans Flask
+│   │   └── stats.py        # Calcul des statistiques, sans Flask
+│   └── qwirkle/
+│       ├── routes.py       # Blueprint Qwirkle (préfixe interne /qwirkle)
+│       ├── scoring.py      # Tours rejoués, feuille de score, joueur suivant, sans Flask
 │       └── stats.py        # Calcul des statistiques, sans Flask
-├── templates/              # Templates Jinja : communs + Skyjo à la racine, templates/flip7/ et templates/mantis/,
-│                           # _hub_header.html = en-tête des pages communes
+├── templates/              # Templates Jinja : communs + Skyjo à la racine, un sous-dossier par jeu générique ;
+│                           # _hub_header.html (en-tête des pages communes), _game_index.html (liste des parties)
+│                           # et _game_stats.html (page de stats que chaque jeu étend)
 ├── static/                 # style.css (Metro UI), flip7.js (calcul en direct des manches Flip 7)
 ├── images/                 # Images des jeux et règles
 ├── scripts/                # Scripts de maintenance (voir plus bas)
@@ -100,23 +120,32 @@ Apache expose deux préfixes publics qui pointent vers la même instance Gunicor
 | `/familyboardgame/…`         | `/…`          | Hub, connexion, profil, groupes, stats, admin       |
 | `/familyboardgame/flip7/…`   | `/flip7/…`    | Blueprint Flip 7                                    |
 | `/familyboardgame/mantis/…`  | `/mantis/…`   | Blueprint Mantis                                    |
+| `/familyboardgame/qwirkle/…` | `/qwirkle/…`  | Blueprint Qwirkle                                   |
 | `/skyjo/…`                   | `/play/…`     | Blueprint Skyjo : liste des parties, nouvelle partie, saisie des scores |
 
 Les nouveaux jeux sont servis sous le préfixe commun `/familyboardgame/` : aucune règle Apache à ajouter.
 Les liens dans le code et les templates utilisent les URLs publiques en dur (`/familyboardgame/…`, `/skyjo/…`).
-Lancée directement sans Apache, l'application répond sur `/`, `/flip7/`, `/mantis/` et `/play/`.
+Lancée directement sans Apache, l'application répond sur `/`, `/flip7/`, `/mantis/`, `/qwirkle/` et `/play/`.
 
 ### Ajouter un jeu
 
-Sur le modèle de Flip 7 (score par manche) ou de Mantis (compteur en direct) :
-1. un blueprint dans `games/<jeu>/` (préfixe interne `/<jeu>`, donc servi sous `/familyboardgame/<jeu>/`), enregistré dans `app.py` ;
-2. une entrée dans `games/registry.py` (slug, nom, URL, image) : le jeu apparaît alors dans le hub, le menu des statistiques
+Sur le modèle de Flip 7 (score par manche), Mantis (compteur en direct) ou Qwirkle (tour par tour) :
+1. `games/<jeu>/scoring.py` et `stats.py` : règles et statistiques, sans Flask (`compute_stats`, `compute_player_stats` ;
+   `core/stats.py` fournit `award` pour les dalles et `player_profile` pour la page joueur) ;
+2. `games/<jeu>/routes.py` : un blueprint (préfixe interne `/<jeu>`, donc servi sous `/familyboardgame/<jeu>/`) avec la page
+   de partie et la saisie propres au jeu, puis `add_common_routes(...)` (`core/game_routes.py`) qui ajoute la liste des parties,
+   la nouvelle partie, la suppression admin, les règles, les stats et la page joueur ; l'enregistrer dans `app.py` ;
+3. une entrée dans `games/registry.py` (slug, nom, URL, image) : le jeu apparaît alors dans le hub, le menu des statistiques
    et les pages de groupes ;
-3. les données dans les tables génériques `game_sessions` / `session_players` / `session_scores`, avec `game_slug` propre au jeu
-   et le détail spécifique en JSON dans `session_scores.details` : pas de nouvelle table ; `core/sessions.py` fournit l'accès
-   aux parties, leur création / suppression et le chargement des données de stats ;
-4. le formulaire `templates/new_game.html` est réutilisable (paramètres `single_type`, `form_action`, `home_url`, `rules_url`, `body_class`) ;
-5. un bandeau propre au jeu via `body.<jeu>::before` dans `static/style.css`.
+4. les données dans les tables génériques `game_sessions` / `session_players` / `session_scores`, avec `game_slug` propre au jeu
+   et le détail spécifique en JSON dans `session_scores.details` : pas de nouvelle table (`core/sessions.py` : `insert_score`,
+   `next_round_number`, `delete_last_score`…) ;
+5. templates dans `templates/<jeu>/` : `game.html`, `rules.html`, `player_stats.html` et `stats.html` (qui étend `_game_stats.html`
+   et ne définit que ses colonnes et résumés) ; la liste des parties et le formulaire de nouvelle partie sont communs ;
+6. un bandeau propre au jeu via `body.<jeu>::before` dans `static/style.css` ;
+7. un scénario dans `tests/test_games_common.py` (`FIRST_SCORE`) et un fichier `tests/test_<jeu>.py` ;
+8. attention aux tableaux de classe `rounds-table` : sur mobile, ils sont transformés en cartes et l'en-tête est masqué ;
+   chaque cellule doit porter un `data-label` (nom du joueur…), sinon utiliser un tableau dédié (comme la feuille Qwirkle).
 
 ## Base de données
 
@@ -131,7 +160,7 @@ group_members  (id, group_id, player_name, user_id)   -- joueurs d'un groupe
 group_users    (id, group_id, user_id, role)          -- comptes ayant accès au groupe
 game_rules     (id, game_type, rules_pdf)             -- PDF de règles par type de jeu (Skyjo)
 
--- Jeux génériques (Flip 7, Mantis, et les suivants)
+-- Jeux génériques (Flip 7, Mantis, Qwirkle, et les suivants)
 game_sessions   (id, game_slug, variant, group_id, created_by, created_at, finished, comments)
 session_players (id, session_id, player_name, position)
 session_scores  (id, session_id, round_number, player_name, score, details, created_at)
@@ -148,6 +177,7 @@ Utilisation de `session_scores` selon le jeu :
 |--------|-----------------------------------|---------------------------------|------------------|
 | Flip 7 | le résultat d'un joueur sur une manche | points de la manche        | `numbers`, `bonus`, `x2`, `flip7`, `stop`, `bust` |
 | Mantis | une action, dans l'ordre (`round_number` = n° d'action) | cartes ajoutées à la pile (0 pour un vol) | `type` : `score`, `steal`, `fix` (+ `steals`), `tank` (+ `tank`) |
+| Qwirkle | un tour, dans l'ordre (`round_number` = n° de tour joué) | total du tour, bonus Qwirkle compris (6 pour le bonus de fin) | `type` : `turn` (+ `points` des lignes, `qwirkles` = nombre, `swap`) ou `bonus` |
 
 \* `display_name` est obsolète (fusionné dans `player_name`), conservé pour ne pas toucher aux données existantes.
 
@@ -177,7 +207,7 @@ Ne pas tester directement sur `http://127.0.0.1:5000/familyboardgame/…` : le p
 Gunicorn seul répond 404. Passer par http://localhost/….
 
 Accès via Apache local (config `/etc/apache2/sites-available/skyjo-local.conf`, mêmes règles qu'en prod mais vers le port 5000) :
-- http://localhost/familyboardgame/ (hub ; Flip 7 et Mantis sous `/familyboardgame/flip7/` et `/familyboardgame/mantis/`)
+- http://localhost/familyboardgame/ (hub ; les jeux génériques sous `/familyboardgame/<jeu>/`)
 - http://localhost/skyjo/
 
 Variables d'environnement (voir `.env.example`) :
@@ -192,22 +222,23 @@ Tests :
 
 ```bash
 pip install pytest
-python -m pytest tests/test_flip7.py tests/test_mantis.py
+python -m pytest
 ```
 
-⚠️ Les anciens tests Skyjo (`tests/test_*` hors Flip 7 et Mantis) ne sont plus à jour depuis le découpage en modules
-(ils référencent `app.DB_PATH` et les anciennes tables `rounds`).
+Chaque test travaille sur une base temporaire (`core.db.DB_PATH` remplacé), jamais sur `skyjo.db` :
+`test_skyjo.py`, `test_flip7.py`, `test_mantis.py`, `test_qwirkle.py`, et `test_games_common.py`
+qui vérifie les routes communes (liste, droits, suppression admin, stats) pour chaque jeu du registre.
 
 ## Images
 
 Dossier `images/`, servi sous `/familyboardgame/images/` :
 
-| Usage                         | Skyjo                                   | Flip 7               | Mantis                         |
-|-------------------------------|-----------------------------------------|----------------------|--------------------------------|
-| Tuile du hub                  | `SkyjoAcceuil.png`                      | `Flip7.webp`         | `Mantis.jpg`                   |
-| Menu des statistiques         | `SkyjoStat.png`, `SkyjoActionStat.png`  | `Flip7.webp`         | `Mantis.jpg`                   |
-| Bandeau des pages du jeu      | `article-skyjo-bandeau-bis.webp`        | `Flip7-quatro.webp`  | `mantis-materiel-de-jeu.png`   |
-| Règles                        | PDF (`88-skyjo-regle.pdf`, `skyjo_action_regles_fr.pdf`) | `ReglesFlip7-*.png` | `MantisRegle*.png` |
+| Usage                    | Skyjo                                   | Flip 7               | Mantis                         | Qwirkle               |
+|--------------------------|-----------------------------------------|----------------------|--------------------------------|-----------------------|
+| Tuile du hub             | `SkyjoAcceuil.png`                      | `Flip7.webp`         | `Mantis.jpg`                   | `qwirkle.png`         |
+| Menu des statistiques    | `SkyjoStat.png`, `SkyjoActionStat.png`  | `Flip7.webp`         | `Mantis.jpg`                   | `qwirkle.png`         |
+| Bandeau des pages du jeu | `article-skyjo-bandeau-bis.webp`        | `Flip7-quatro.webp`  | `mantis-materiel-de-jeu.png`   | `Qwirkle-bandeau.png` |
+| Règles                   | PDF (`88-skyjo-regle.pdf`, `skyjo_action_regles_fr.pdf`) | `ReglesFlip7-*.png` | `MantisRegle*.png` | `ReglesQwirkle*.png` |
 
 Les fichiers `*:Zone.Identifier` créés par Windows lors d'une copie vers WSL sont ignorés par git et peuvent être supprimés.
 

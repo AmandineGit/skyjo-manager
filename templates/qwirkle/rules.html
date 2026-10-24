@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Règles — Qwirkle</title>
+  <link rel="stylesheet" href="/familyboardgame/static/style.css">
+</head>
+<body class="qwirkle">
+  <div class="page-content">
+  <h1>📖 Règles de Qwirkle</h1>
+
+  <div class="f7-rules">
+    <img src="/familyboardgame/images/ReglesQwirkle1.png" alt="Règles Qwirkle — contenu, but du jeu, préparation, début de partie">
+    <img src="/familyboardgame/images/ReglesQwirkle2.png" alt="Règles Qwirkle — déroulement de la partie, compléter une ligne">
+    <img src="/familyboardgame/images/ReglesQwirkle3.png" alt="Règles Qwirkle — échanger des tuiles, calcul des points, fin de la partie">
+    <img src="/familyboardgame/images/ReglesQwirkle4.png" alt="Règles Qwirkle — astuces stratégiques, exemples de jeu A à D">
+    <img src="/familyboardgame/images/ReglesQwirkle5.png" alt="Règles Qwirkle — exemples de jeu E à H">
+    <img src="/familyboardgame/images/ReglesQwirkle6.png" alt="Règles Qwirkle — exemples de jeu I à L">
+  </div>
+
+  <div class="f7-rules-note">
+    <strong>Dans l'application</strong>
+    <ul>
+      <li>Saisissez les points des lignes du tour (1 point par tuile) ; chaque ⭐ Qwirkle ajoute automatiquement
+        {{ qwirkle_bonus }} points. Exemple K : 6 + 3 + 3 avec un Qwirkle = 12 saisis + {{ qwirkle_bonus }} = 18.</li>
+      <li>En fin de partie, le joueur qui a posé toutes ses tuiles reçoit {{ end_bonus }} points ;
+        si la partie est bloquée, personne ne les reçoit.</li>
+    </ul>
+  </div>
+
+  <a href="{{ base_url }}/" class="back-button">← Parties Qwirkle</a>
+  </div>
+</body>
+</html>

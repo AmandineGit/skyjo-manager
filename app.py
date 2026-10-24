@@ -26,6 +26,7 @@ from core.auth import require_auth, get_current_user, is_admin, get_user_group_i
 from games.skyjo.routes import skyjo_bp
 from games.flip7.routes import flip7_bp
 from games.mantis.routes import mantis_bp
+from games.qwirkle.routes import qwirkle_bp
 from games.registry import GENERIC_GAMES, GAMES_BY_SLUG
 
 from export_to_onedrive import export_all_to_onedrive
@@ -44,6 +45,7 @@ app.secret_key = os.environ.get('FLASK_SECRET', 'change-me')
 app.register_blueprint(skyjo_bp)
 app.register_blueprint(flip7_bp)
 app.register_blueprint(mantis_bp)
+app.register_blueprint(qwirkle_bp)
 app.jinja_env.filters['format_ts'] = format_ts
 app.jinja_env.filters['format_date_fr'] = format_date_fr
 

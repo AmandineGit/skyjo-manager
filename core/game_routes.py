@@ -1,5 +1,5 @@
 """
-Routes identiques pour tous les jeux génériques (Flip 7, Mantis…) :
+Routes identiques pour tous les jeux génériques (Flip 7, Mantis, Qwirkle…) :
 liste des parties, nouvelle partie, suppression (admin), règles, statistiques et stats par joueur.
 Chaque jeu les ajoute à son blueprint avec add_common_routes, puis définit ses routes propres
 (page de partie, saisie, fin de partie…). Templates attendus : <slug>/rules.html,

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modifier un tour — Partie #{{ game['id'] }} — Qwirkle</title>
+  <link rel="stylesheet" href="/familyboardgame/static/style.css">
+</head>
+<body class="qwirkle">
+  <div class="page-content">
+  <h1>✏️ Tour de {{ row['player_name'] }}</h1>
+  <p style="color: #666; margin-bottom: 20px;">Partie #{{ game['id'] }} — Qwirkle</p>
+
+  {% with messages = get_flashed_messages() %}
+    {% for message in messages %}
+      <div class="flash-message">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <form method="post" class="q-turn">
+    <div class="q-turn-row">
+      <input name="points" type="number" min="1" max="999" inputmode="numeric" placeholder="Points"
+             value="{{ points if not details.get('swap') else '' }}" autofocus>
+      {% with value=qwirkles %}{% include 'qwirkle/_qwirkle_counter.html' %}{% endwith %}
+      <button type="submit" class="button q-valid">✓ Enregistrer</button>
+    </div>
+    <div class="q-turn-row" style="margin-top: 10px;">
+      <button type="submit" name="swap" value="1" class="button q-swap">🔄 C'était un échange (0 pt)</button>
+      <a href="{{ base_url }}/game/{{ game['id'] }}" class="button button-secondary">Annuler</a>
+    </div>
+  </form>
+  </div>
+</body>
+</html>

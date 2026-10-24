@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Partie #{{ game['id'] }} — Qwirkle</title>
+  <link rel="stylesheet" href="/familyboardgame/static/style.css">
+</head>
+<body class="qwirkle">
+  <div class="page-content">
+  {% set totals = state.totals %}
+
+  <h1>🔷 Partie #{{ game['id'] }}</h1>
+  <p style="font-size: 1rem; color: #666; margin-bottom: 20px;">
+    Qwirkle — {{ game['created_at']|format_date_fr }} · {{ players|length }} joueurs · le plus haut score gagne
+    {% if not game['finished'] %}
+      <span style="color: #43e97b; font-weight: 600;"> • En cours</span>
+    {% else %}
+      <span style="color: #e74c3c; font-weight: 600;"> • Terminée</span>
+    {% endif %}
+  </p>
+
+  {% with messages = get_flashed_messages() %}
+    {% for message in messages %}
+      <div class="flash-message">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  {% if game_winners %}
+  <div class="m-winner-banner">
+    🏆 {{ 'Gagnant' if game_winners|length == 1 else 'Ex æquo' }} : {{ game_winners|join(', ') }} — {{ totals[game_winners[0]] }} points
+    {% if state.finisher %}<br><small>🏁 {{ state.finisher }} a vidé sa main en premier (+{{ end_bonus }})</small>{% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Cartes joueurs : toucher une carte désigne le joueur en cours -->
+  <div class="q-players">
+    {% for p in players %}
+    {% set is_current = not game['finished'] and can_edit and p == current %}
+    <a class="q-player{% if is_current %} current{% endif %}{% if p in game_winners %} winner{% endif %}"
+       {% if not game['finished'] and can_edit %}href="{{ base_url }}/game/{{ game['id'] }}?player={{ p|urlencode }}"{% endif %}>
+      <div class="q-name">{% if p in top %}👑 {% endif %}{{ p }}</div>
+      <div class="q-total">{{ totals[p] }}</div>
+      <div class="q-sub">⭐ {{ state.qwirkles[p] }} Qwirkle{{ 's' if state.qwirkles[p] > 1 }}</div>
+    </a>
+    {% endfor %}
+  </div>
+
+  {% if not game['finished'] and can_edit %}
+  <form method="post" action="{{ base_url }}/game/{{ game['id'] }}/turn" class="q-turn">
+    <input type="hidden" name="player" value="{{ current }}">
+    <h2>🎲 Tour {{ table_turn }} — à <strong>{{ current }}</strong> de jouer</h2>
+    <div class="q-turn-row">
+      <input name="points" type="number" min="1" max="999" inputmode="numeric" placeholder="Points" aria-label="Points des lignes de {{ current }}" autofocus>
+      {% with value=0 %}{% include 'qwirkle/_qwirkle_counter.html' %}{% endwith %}
+      {# Premier bouton du formulaire : c'est lui que déclenche la touche Entrée #}
+      <button type="submit" class="button q-valid">✓ Valider</button>
+    </div>
+    <div class="q-turn-row" style="margin-top: 10px;">
+      <button type="submit" name="swap" value="1" class="button q-swap">🔄 Échange de tuiles (0 pt)</button>
+    </div>
+    <p class="q-help">
+      Après validation, la main passe au joueur suivant. Touchez une carte joueur pour changer le joueur en cours.
+      Saisissez les points des lignes (1 par tuile) ; chaque ⭐ Qwirkle ajoute automatiquement {{ qwirkle_bonus }} points.
+    </p>
+  </form>
+
+  <div class="m-toolbar">
+    {% if has_turns %}
+    <form method="post" action="{{ base_url }}/game/{{ game['id'] }}/undo" class="inline-form">
+      <button type="submit" class="button button-secondary">↶ Annuler le dernier tour</button>
+    </form>
+    {% endif %}
+    <a href="{{ base_url }}/rules" target="_blank" class="button button-rules">Voir les règles</a>
+  </div>
+
+  <details class="q-end">
+    <summary class="button" style="background: linear-gradient(135deg, #fc5c7d 0%, #6a82fb 100%);">🏁 Fin de partie</summary>
+    <form method="post" action="{{ base_url }}/game/{{ game['id'] }}/finish"
+          onsubmit="return confirm('Terminer la partie ?');">
+      <p>Qui a posé toutes ses tuiles en premier ? Il gagne <strong>{{ end_bonus }} points de bonus</strong>.</p>
+      <div class="q-turn-row">
+        {% for p in players %}
+        <button type="submit" name="finisher" value="{{ p }}" class="button q-valid">{{ p }} (+{{ end_bonus }})</button>
+        {% endfor %}
+        <button type="submit" name="finisher" value="" class="button button-secondary">Personne (partie bloquée)</button>
+      </div>
+    </form>
+  </details>
+  {% else %}
+  <div class="m-toolbar">
+    {% if game['finished'] %}<a href="{{ base_url }}/new?group={{ game['group_id'] }}" class="button">➕ Nouvelle partie</a>{% endif %}
+    <a href="{{ base_url }}/rules" target="_blank" class="button button-rules">Voir les règles</a>
+  </div>
+  {% endif %}
+
+  <h2 style="margin-top: 30px;">📋 Feuille de score</h2>
+  {% if state.sheet %}
+  {# Grille façon feuille papier, y compris sur mobile (pas de transformation en cartes) #}
+  <div class="q-sheet-wrap">
+  <table class="q-sheet">
+    <thead>
+      <tr>
+        <th>Tour</th>
+        {% for p in players %}<th>{{ p }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+    {% for line in state.sheet %}
+      <tr>
+        <td class="q-sheet-turn">{{ loop.index }}</td>
+        {% for p in players %}
+        {% set t = line.get(p) %}
+        <td>
+          {% if t %}
+            {% if can_edit %}<a href="{{ base_url }}/game/{{ game['id'] }}/turn/{{ t.number }}" class="q-cell-link" title="Modifier ce tour">{% endif %}
+            {% if t.swap %}🔄{% else %}{{ t.score }}{% if t.qwirkles %} {{ '⭐' * t.qwirkles }}{% endif %}{% endif %}
+            {% if can_edit %}</a>{% endif %}
+          {% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+    {% endfor %}
+    {% if state.finisher %}
+      <tr>
+        <td class="q-sheet-turn">🏁</td>
+        {% for p in players %}<td>{% if p == state.finisher %}+{{ end_bonus }}{% endif %}</td>{% endfor %}
+      </tr>
+    {% endif %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td class="q-sheet-turn">Total</td>
+        {% for p in players %}<td>{{ totals[p] }}</td>{% endfor %}
+      </tr>
+    </tfoot>
+  </table>
+  </div>
+  {% if can_edit %}<p class="q-help">Touchez un score pour le modifier.</p>{% endif %}
+  {% else %}
+  <p class="m-log-empty">Aucun tour joué pour l'instant.</p>
+  {% endif %}
+
+  <a href="{{ base_url }}/" class="back-button">← Parties Qwirkle</a>
+
+  {% if is_admin %}
+  <div style="margin-top: 20px; text-align: center;">
+    {% if game['finished'] %}
+    <form method="post" action="{{ base_url }}/game/{{ game['id'] }}/reopen" class="inline-form"
+          onsubmit="return confirm('Reprendre cette partie ?');">
+      <button type="submit" class="button button-secondary">↺ Reprendre la partie</button>
+    </form>
+    {% endif %}
+    <form method="post" action="{{ base_url }}/game/{{ game['id'] }}/delete" class="inline-form"
+          onsubmit="return confirm('Supprimer définitivement cette partie ?');">
+      <button type="submit" class="button button-danger">🗑 Supprimer la partie</button>
+    </form>
+  </div>
+  {% endif %}
+  </div>
+</body>
+</html>

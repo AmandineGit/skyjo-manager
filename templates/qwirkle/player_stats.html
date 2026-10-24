@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stats {{ player.name }} — Qwirkle</title>
+  <link rel="stylesheet" href="/familyboardgame/static/style.css">
+</head>
+<body class="qwirkle">
+  <div class="page-content">
+  <div style="margin-bottom: 20px;">
+    <a href="{{ stats_url }}" class="button button-secondary">← Retour aux stats Qwirkle</a>
+  </div>
+  <h1>📊 {{ player.name }}</h1>
+  <p style="font-size: 1rem; color: #666; margin-bottom: 25px;">
+    Qwirkle · {{ player.games }} partie{{ 's' if player.games > 1 else '' }} jouée{{ 's' if player.games > 1 else '' }}
+    · {{ player.finished_games }} terminée{{ 's' if player.finished_games > 1 else '' }}
+  </p>
+
+  <!-- Tuiles Metro style -->
+  <section class="metro-tiles">
+    <!-- Tuile Moyenne -->
+    <div class="metro-tile tile-player-mean">
+      <div class="tile-header">
+        <span class="tile-icon">📊</span>
+        <span class="tile-title">Moyenne</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ '%.1f'|format(player.avg) }}</div>
+        <div class="tile-main-label">points par partie</div>
+        <div class="tile-secondary-value">Médiane : {{ player.median }}</div>
+      </div>
+    </div>
+
+    <!-- Tuile Victoires -->
+    <div class="metro-tile tile-podium">
+      <div class="tile-header">
+        <span class="tile-icon">🏆</span>
+        <span class="tile-title">Victoires</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ player.wins }}</div>
+        <div class="tile-main-label">victoire{{ 's' if player.wins > 1 else '' }}</div>
+        <div class="tile-details">{{ player.win_rate }} % des parties terminées</div>
+      </div>
+    </div>
+
+    <!-- Tuile Meilleure partie -->
+    <div class="metro-tile tile-player-top">
+      <div class="tile-header">
+        <span class="tile-icon">✨</span>
+        <span class="tile-title">Meilleure partie</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ player.best_game if player.best_game is not none else '—' }}</div>
+        <div class="tile-main-label">points</div>
+        <div class="tile-details">Score final le plus haut</div>
+      </div>
+    </div>
+
+    <!-- Tuile Meilleur tour -->
+    <div class="metro-tile tile-best">
+      <div class="tile-header">
+        <span class="tile-icon">💥</span>
+        <span class="tile-title">Meilleur tour</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ player.best_turn or '—' }}</div>
+        <div class="tile-main-label">points en un tour</div>
+        <div class="tile-details">{{ '%.1f'|format(player.avg_turn) }} points par tour en moyenne</div>
+      </div>
+    </div>
+
+    <!-- Tuile Qwirkles -->
+    <div class="metro-tile tile-qwirkle-king">
+      <div class="tile-header">
+        <span class="tile-icon">⭐</span>
+        <span class="tile-title">Qwirkles</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ player.qwirkles }}</div>
+        <div class="tile-main-label">ligne{{ 's' if player.qwirkles > 1 else '' }} de 6 complétée{{ 's' if player.qwirkles > 1 else '' }}</div>
+        <div class="tile-details">{{ player.turns }} tours joués</div>
+      </div>
+    </div>
+
+    <!-- Tuile Fins de partie -->
+    <div class="metro-tile tile-precoce">
+      <div class="tile-header">
+        <span class="tile-icon">🏁</span>
+        <span class="tile-title">Fins de partie</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ player.finishes }}</div>
+        <div class="tile-main-label">fois premier à vider sa main</div>
+        <div class="tile-details">🔄 {{ player.swaps }} échange{{ 's' if player.swaps > 1 else '' }} de tuiles</div>
+      </div>
+    </div>
+
+    <!-- Tuile Ancienneté -->
+    {% if player.first_game_date %}
+    <div class="metro-tile tile-player-seniority">
+      <div class="tile-header">
+        <span class="tile-icon">📅</span>
+        <span class="tile-title">Ancienneté</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value" style="font-size: 1.5rem;">{{ player.first_game_date|format_date_fr }}</div>
+        <div class="tile-main-label">première partie</div>
+        <div class="tile-secondary-value">Qwirkle</div>
+      </div>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- Co-joueurs fréquents -->
+  {% if player.frequent_players %}
+  <section class="player-coplayers-section">
+    <h2>👥 Co-joueurs fréquents</h2>
+    <div class="coplayers-grid">
+      {% for cp in player.frequent_players %}
+      <div class="coplayer-card">
+        <div class="coplayer-name">{{ cp.player }}</div>
+        <div class="coplayer-count">{{ cp.games }} partie{{ 's' if cp.games > 1 else '' }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <div style="margin-top: 30px;">
+    <a href="{{ stats_url }}" class="button">← Retour aux stats Qwirkle</a>
+  </div>
+  <a href="/familyboardgame/stats{% if group_id %}?group={{ group_id }}{% endif %}" class="back-button">← Menu stats</a>
+  </div>
+</body>
+</html>

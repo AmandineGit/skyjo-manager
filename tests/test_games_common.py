@@ -15,6 +15,8 @@ FIRST_SCORE = {
         'player': ['Anna', 'Ben'], 'numbers_0': '30', 'numbers_1': '10'}),
     'mantis': lambda c, sid: c.post(f'/mantis/game/{sid}/action', data={
         'player': 'Anna', 'action': 'score', 'count': '30'}),
+    'qwirkle': lambda c, sid: c.post(f'/qwirkle/game/{sid}/turn', data={
+        'player': 'Anna', 'points': '30'}),
 }
 SLUGS = [g['slug'] for g in GENERIC_GAMES]
 

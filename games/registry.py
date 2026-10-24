@@ -19,6 +19,13 @@ GENERIC_GAMES = [
         'image': '/familyboardgame/images/Mantis.jpg',
         'description': 'Marquer ou voler ? Le plus de cartes gagne',
     },
+    {
+        'slug': 'qwirkle',
+        'name': 'Qwirkle',
+        'url': '/familyboardgame/qwirkle',
+        'image': '/familyboardgame/images/qwirkle.png',
+        'description': 'Formes et couleurs : visez le Qwirkle !',
+    },
 ]
 
 GAMES_BY_SLUG = {g['slug']: g for g in GENERIC_GAMES}

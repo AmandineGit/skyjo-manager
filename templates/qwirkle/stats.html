@@ -1,0 +1,25 @@
+{% extends '_game_stats.html' %}
+
+{% block players_tile_secondary %}{{ stats.players|sum(attribute='qwirkles') }} Qwirkles au total{% endblock %}
+
+{% block table_head %}
+            <th class="stat-col">Victoires</th>
+            <th class="stat-col">Moy. score</th>
+            <th class="stat-col stat-col-hide-mobile">Moy./tour</th>
+            <th class="stat-col stat-col-hide-mobile">Meilleure partie</th>
+            <th class="stat-col stat-col-hide-mobile">Meilleur tour</th>
+            <th class="stat-col stat-col-hide-mobile">⭐ Qwirkles</th>
+            <th class="stat-col stat-col-hide-mobile">🏁 Fins</th>
+            <th class="stat-col stat-col-hide-mobile">🔄 Échanges</th>
+{% endblock %}
+
+{% block table_row %}
+            <td class="stat-col">{{ r.wins }}/{{ r.finished_games }}</td>
+            <td class="stat-col">{{ '%.1f'|format(r.avg) }}</td>
+            <td class="stat-col stat-col-hide-mobile">{{ '%.1f'|format(r.avg_turn) }}</td>
+            <td class="stat-col stat-col-hide-mobile stat-best">{{ r.best_game if r.best_game is not none else '—' }}</td>
+            <td class="stat-col stat-col-hide-mobile">{{ r.best_turn or '—' }}</td>
+            <td class="stat-col stat-col-hide-mobile">{{ r.qwirkles }}</td>
+            <td class="stat-col stat-col-hide-mobile">{{ r.finishes }}</td>
+            <td class="stat-col stat-col-hide-mobile">{{ r.swaps }}</td>
+{% endblock %}
