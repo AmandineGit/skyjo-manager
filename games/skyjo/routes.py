@@ -5,6 +5,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from datetime import datetime, timezone
 from core.auth import require_auth, get_current_user, is_admin, get_user_group_ids
 from core.db import get_db, get_totals, normalize_name, format_date_fr
+from core.groups import get_user_groups, parse_players, resolve_game_group
 
 skyjo_bp = Blueprint('skyjo', __name__, url_prefix='/play', template_folder='../../templates')
 
@@ -65,107 +66,18 @@ def new_game():
     cur = db.cursor()
     now = datetime.now(timezone.utc).isoformat()
 
-    group_ids = get_user_group_ids(user)
-    if group_ids:
-        placeholders = ','.join('?' * len(group_ids))
-        user_groups = db.execute(
-            f'SELECT id, name FROM player_groups WHERE id IN ({placeholders}) ORDER BY name',
-            group_ids
-        ).fetchall()
-    else:
-        user_groups = []
+    user_groups = get_user_groups(user)
 
     if request.method == 'POST':
         game_type = request.form.get('type') or 'Skyjo'
         comments = request.form.get('comments') or ''
-        group_id = request.form.get('group_id')
-        create_new_group = request.form.get('create_new_group') or (not user_groups and not group_id)
-        new_group_name = request.form.get('new_group_name', '').strip()
 
-        # Collect players from player_1..player_10 fields if present
-        players = []
-        for i in range(1, 11):
-            p = request.form.get(f'player_{i}')
-            if p and p.strip():
-                players.append(p.strip())
-        # Fallback to legacy comma-separated field
-        if not players:
-            players_raw = request.form.get('players') or ''
-            players = [p.strip() for p in players_raw.split(',') if p.strip()]
-        if not players:
-            flash('Ajoutez au moins un joueur (au moins 1).')
+        players, error = parse_players(request.form)
+        if error:
+            flash(error)
             return redirect('/skyjo/new')
 
-        # Vérifier les doublons de noms dans la liste des joueurs soumis
-        normalized_players = {}
-        duplicates_in_form = []
-        for p in players:
-            p_normalized = normalize_name(p)
-            if p_normalized in normalized_players:
-                duplicates_in_form.append((normalized_players[p_normalized], p))
-            else:
-                normalized_players[p_normalized] = p
-
-        if duplicates_in_form:
-            dup_msg = ', '.join([f'"{a}" et "{b}"' for a, b in duplicates_in_form])
-            flash(f'Noms de joueurs identiques détectés : {dup_msg}. '
-                  f'Si ce sont des personnes différentes, ajoutez une distinction (ex: initiale du nom).')
-            return redirect('/skyjo/new')
-
-        # Créer un nouveau groupe si demandé
-        if create_new_group:
-            # Générer un nom automatique si non fourni
-            if not new_group_name:
-                count = db.execute(
-                    'SELECT COUNT(*) as c FROM player_groups WHERE created_by = ?',
-                    (user['id'],)
-                ).fetchone()['c']
-                new_group_name = f"Groupe {count + 1}"
-            cur.execute(
-                'INSERT INTO player_groups (name, created_by, created_at) VALUES (?, ?, ?)',
-                (new_group_name, user['id'], now)
-            )
-            group_id = cur.lastrowid
-            # Ajouter l'utilisateur comme owner
-            cur.execute(
-                'INSERT INTO group_users (group_id, user_id, role) VALUES (?, ?, ?)',
-                (group_id, user['id'], 'owner')
-            )
-            # Ajouter les joueurs au groupe
-            for p in players:
-                cur.execute(
-                    'INSERT INTO group_members (group_id, player_name) VALUES (?, ?)',
-                    (group_id, p)
-                )
-        elif group_id:
-            # Ajouter les nouveaux joueurs au groupe existant s'ils n'y sont pas déjà
-            existing_members = db.execute(
-                'SELECT player_name FROM group_members WHERE group_id = ?',
-                (group_id,)
-            ).fetchall()
-            existing_names = {m['player_name'].lower() for m in existing_members}
-            for p in players:
-                if p.lower() not in existing_names:
-                    cur.execute(
-                        'INSERT INTO group_members (group_id, player_name) VALUES (?, ?)',
-                        (group_id, p)
-                    )
-
-        # Si pas de groupe sélectionné, utiliser le premier groupe de l'utilisateur
-        if not group_id:
-            group_id = user_groups[0]['id']
-            # Ajouter les joueurs à ce groupe
-            existing_members = db.execute(
-                'SELECT player_name FROM group_members WHERE group_id = ?',
-                (group_id,)
-            ).fetchall()
-            existing_names = {m['player_name'].lower() for m in existing_members}
-            for p in players:
-                if p.lower() not in existing_names:
-                    cur.execute(
-                        'INSERT INTO group_members (group_id, player_name) VALUES (?, ?)',
-                        (group_id, p)
-                    )
+        group_id = resolve_game_group(cur, user, user_groups, request.form, players, now)
 
         # Créer la partie (group_id est toujours défini maintenant)
         cur.execute(
@@ -419,7 +331,7 @@ def search_players():
     db = get_db()
     # Récupère tous les noms de joueurs uniques
     all_players = db.execute(
-        'SELECT DISTINCT name FROM skyjo_players ORDER BY name'
+        'SELECT name FROM skyjo_players UNION SELECT player_name FROM session_players ORDER BY name'
     ).fetchall()
 
     # Normalise la requête pour la comparaison
@@ -456,10 +368,14 @@ def check_player_duplicate():
             SELECT DISTINCT name FROM skyjo_players p
             JOIN skyjo_games g ON p.game_id = g.id
             WHERE g.group_id = ?
-        ''', (group_id, group_id)).fetchall()
+            UNION
+            SELECT DISTINCT sp.player_name FROM session_players sp
+            JOIN game_sessions gs ON sp.session_id = gs.id
+            WHERE gs.group_id = ?
+        ''', (group_id, group_id, group_id)).fetchall()
     else:
         all_players = db.execute(
-            'SELECT DISTINCT name FROM skyjo_players ORDER BY name'
+            'SELECT name FROM skyjo_players UNION SELECT player_name FROM session_players ORDER BY name'
         ).fetchall()
 
     # Trouver les noms qui ont la même normalisation

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mes groupes — Skyjo</title>
+  <title>Mes groupes — Family board games</title>
   <link rel="stylesheet" href="/familyboardgame/static/style.css">
 </head>
 <body>
@@ -32,8 +32,15 @@
         <div class="group-icon">👥</div>
         <h3>{{ group.name }}</h3>
         <div class="group-stats">
-          <span>{{ group.member_count }} joueur(s)</span>
-          <span>{{ group.game_count }} partie(s)</span>
+          <span>👥 {{ group.member_count }} joueur{{ 's' if group.member_count > 1 else '' }}</span>
+        </div>
+        {% set counts = [('Skyjo', group.skyjo_count), ('Skyjo Action', group.skyjo_action_count), ('Flip 7', group.flip7_count)] %}
+        <div class="group-games">
+          {% for name, count in counts if count %}
+          <span class="group-game-chip">{{ name }} · {{ count }} partie{{ 's' if count > 1 else '' }}</span>
+          {% else %}
+          <span class="group-game-chip">Aucune partie</span>
+          {% endfor %}
         </div>
       </a>
       {% endfor %}
@@ -42,7 +49,7 @@
     <div class="empty-state">
       <div class="empty-icon">📭</div>
       <h2>Aucun groupe</h2>
-      <p>Créez votre premier groupe en lançant une <a href="/skyjo/new">nouvelle partie</a>.</p>
+      <p>Créez votre premier groupe en lançant une nouvelle partie de <a href="/skyjo/new">Skyjo</a> ou de <a href="/familyboardgame/flip7/new">Flip 7</a>.</p>
     </div>
     {% endif %}
 

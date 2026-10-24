@@ -1,0 +1,41 @@
+{# Saisie d'une manche Flip 7 : une carte par joueur. Les champs sont indexés par la position
+   du joueur dans le formulaire (player, numbers_i, bonus_i, x2_i, flip7_i, stop_i, bust_i). #}
+{% macro round_entries(players, totals={}, prefill={}) %}
+<div class="f7-entries">
+  {% for p in players %}
+  {% set d = prefill.get(p, {}) %}
+  {% set i = loop.index0 %}
+  <div class="f7-entry" data-player="{{ p }}" data-current="{{ totals.get(p, 0) }}">
+    <input type="hidden" name="player" value="{{ p }}">
+    <div class="f7-entry-head">
+      <strong>{{ p }}</strong>
+      <span class="f7-entry-total">= <b class="f7-total">0</b> pts</span>
+    </div>
+    <div class="f7-entry-fields">
+      <label>Chiffres
+        <input name="numbers_{{ i }}" class="f7-numbers" type="text" inputmode="numeric" pattern="\d*"
+               placeholder="0" value="{{ d.get('numbers') or '' }}" autocomplete="off">
+      </label>
+      <label>+ Bonus
+        <input name="bonus_{{ i }}" class="f7-bonus" type="text" inputmode="numeric" pattern="\d*"
+               placeholder="0" value="{{ d.get('bonus') or '' }}" autocomplete="off">
+      </label>
+    </div>
+    <div class="f7-toggles">
+      <label class="f7-toggle" title="Carte ×2 : double uniquement les chiffres">
+        <input type="checkbox" name="x2_{{ i }}" class="f7-x2" {% if d.get('x2') %}checked{% endif %}> ×2
+      </label>
+      <label class="f7-toggle" title="7 cartes numéros différentes : +{{ flip7_bonus }} points">
+        <input type="checkbox" name="flip7_{{ i }}" class="f7-flip7 f7-ending" {% if d.get('flip7') %}checked{% endif %}> 🎯 Flip 7
+      </label>
+      <label class="f7-toggle" title="Le joueur s'est arrêté et garde ses points">
+        <input type="checkbox" name="stop_{{ i }}" class="f7-stop f7-ending" {% if d.get('stop') %}checked{% endif %}> ✋ Stop
+      </label>
+      <label class="f7-toggle f7-toggle-bust" title="Deux cartes identiques : 0 point pour la manche">
+        <input type="checkbox" name="bust_{{ i }}" class="f7-bust f7-ending" {% if d.get('bust') %}checked{% endif %}> 💥 Doublon
+      </label>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}

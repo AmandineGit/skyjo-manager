@@ -56,6 +56,9 @@ def init_db(reset=False):
         DROP TABLE IF EXISTS skyjo_rounds;
         DROP TABLE IF EXISTS skyjo_players;
         DROP TABLE IF EXISTS skyjo_games;
+        DROP TABLE IF EXISTS session_scores;
+        DROP TABLE IF EXISTS session_players;
+        DROP TABLE IF EXISTS game_sessions;
         DROP TABLE IF EXISTS rounds;
         DROP TABLE IF EXISTS players;
         DROP TABLE IF EXISTS games;
@@ -142,6 +145,43 @@ def init_db(reset=False):
         FOREIGN KEY (game_id) REFERENCES skyjo_games(id)
     );
 
+    -- Parties génériques, communes à tous les jeux hors Skyjo (game_slug : 'flip7', ...)
+    CREATE TABLE IF NOT EXISTS game_sessions (
+        id INTEGER PRIMARY KEY,
+        game_slug TEXT NOT NULL,
+        variant TEXT,
+        group_id INTEGER,
+        created_by INTEGER,
+        created_at TEXT,
+        finished INTEGER DEFAULT 0,
+        comments TEXT,
+        FOREIGN KEY (group_id) REFERENCES player_groups(id),
+        FOREIGN KEY (created_by) REFERENCES users(id)
+    );
+
+    -- Joueurs d'une partie générique
+    CREATE TABLE IF NOT EXISTS session_players (
+        id INTEGER PRIMARY KEY,
+        session_id INTEGER NOT NULL,
+        player_name TEXT NOT NULL,
+        position INTEGER,
+        FOREIGN KEY (session_id) REFERENCES game_sessions(id)
+    );
+
+    -- Scores par manche ; details : JSON propre à chaque jeu
+    CREATE TABLE IF NOT EXISTS session_scores (
+        id INTEGER PRIMARY KEY,
+        session_id INTEGER NOT NULL,
+        round_number INTEGER NOT NULL,
+        player_name TEXT NOT NULL,
+        score INTEGER NOT NULL,
+        details TEXT,
+        created_at TEXT,
+        FOREIGN KEY (session_id) REFERENCES game_sessions(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_session_scores_session ON session_scores(session_id);
+    CREATE INDEX IF NOT EXISTS idx_session_players_session ON session_players(session_id);
+
     -- Règles des jeux
     CREATE TABLE IF NOT EXISTS game_rules (
         id INTEGER PRIMARY KEY,
@@ -206,6 +246,16 @@ def get_totals(game_id, table_name='skyjo_rounds'):
     cur = db.execute(
         f'SELECT player_name, SUM(score) as total FROM {table_name} WHERE game_id=? GROUP BY player_name',
         (game_id,)
+    )
+    return {row['player_name']: row['total'] for row in cur.fetchall()}
+
+
+def get_session_totals(session_id):
+    """Totaux de points par joueur pour une partie générique (game_sessions)."""
+    db = get_db()
+    cur = db.execute(
+        'SELECT player_name, SUM(score) as total FROM session_scores WHERE session_id=? GROUP BY player_name',
+        (session_id,)
     )
     return {row['player_name']: row['total'] for row in cur.fetchall()}
 

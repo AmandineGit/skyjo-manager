@@ -75,6 +75,14 @@
             font-size: 48px;
             margin-bottom: 10px;
         }
+        .game-image {
+            display: block;
+            height: 120px;
+            max-width: 100%;
+            margin: 0 auto 10px;
+            object-fit: contain;
+            border-radius: 6px;
+        }
         .game-name {
             font-size: 20px;
             font-weight: bold;
@@ -129,7 +137,11 @@
         <div class="games-grid">
             {% for game in games %}
             <a href="{{ game.url }}" class="game-card">
+                {% if game.image %}
+                <img src="{{ game.image }}" alt="{{ game.name }}" class="game-image">
+                {% else %}
                 <div class="game-icon">{{ game.icon }}</div>
+                {% endif %}
                 <div class="game-name">{{ game.name }}</div>
                 <div class="game-description">{{ game.description }}</div>
                 <div class="btn-play">Jouer</div>

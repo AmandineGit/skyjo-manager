@@ -1,0 +1,142 @@
+{% from 'flip7/_round_form.html' import round_entries with context %}
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Partie #{{ game['id'] }} — Flip 7</title>
+  <link rel="stylesheet" href="/familyboardgame/static/style.css">
+  <script src="/familyboardgame/static/flip7.js" defer></script>
+</head>
+<body class="flip7">
+  <div class="page-content">
+  {% if winners %}
+    <div class="winner-badge">
+      🏆 {{ 'Gagnant' if winners|length == 1 else 'Ex æquo' }} : {{ winners|join(', ') }}<br>
+      <span class="winner-score">{{ totals[winners[0]] }} pts</span>
+    </div>
+  {% endif %}
+
+  <h1>🃏 Partie #{{ game['id'] }}</h1>
+  <p style="font-size: 1rem; color: #666; margin-bottom: 20px;">
+    Flip 7 — {{ game['created_at']|format_date_fr }}
+    {% if not game['finished'] %}
+      <span style="color: #43e97b; font-weight: 600;"> • En cours</span>
+    {% else %}
+      <span style="color: #e74c3c; font-weight: 600;"> • Terminée</span>
+    {% endif %}
+  </p>
+
+  {% with messages = get_flashed_messages() %}
+    {% for message in messages %}
+      <div class="flash-message">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <div style="margin-bottom: 30px;">
+    <a href="{{ base_url }}/rules" target="_blank" class="button button-rules">Voir les règles</a>
+  </div>
+
+  {% if status == 'tiebreak' and not game['finished'] %}
+  <div class="f7-tiebreak">
+    ⚖️ Égalité en tête à {{ totals[leaders[0]] }} points entre <strong>{{ leaders|join(', ') }}</strong> :
+    ils jouent une manche de départage.
+  </div>
+  {% endif %}
+
+  <section class="game-scores-section">
+    <h2 style="text-align: center; margin-bottom: 20px;">📊 Scores — objectif {{ target_score }} pts</h2>
+    <div class="game-scores-grid">
+      {% for p in ranking %}
+      <div class="game-score-card{% if loop.first and totals[p] > 0 %} f7-leader{% endif %}">
+        <div class="game-score-player">{% if loop.first and totals[p] > 0 %}👑 {% endif %}{{ p }}</div>
+        <div class="game-score-value">
+          {{ totals[p] }}<span class="game-score-label"> pts</span>
+        </div>
+        <div class="f7-progress" title="{{ totals[p] }} / {{ target_score }}">
+          <div class="f7-progress-bar" style="width: {{ [100, (totals[p] * 100 / target_score)|round(0, 'floor')]|min }}%;"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if game['finished'] %}
+    <p style="text-align: center; color: #e74c3c; font-weight: 600; font-size: 1.1rem; margin: 30px 0;">🏁 La partie est terminée</p>
+    <div style="text-align: center; margin: 20px 0;">
+      <a href="{{ base_url }}/new?group={{ game['group_id'] }}" class="button">➕ Nouvelle partie</a>
+      <a href="{{ base_url }}/" class="button button-secondary">← Parties Flip 7</a>
+    </div>
+  {% elif can_edit %}
+    <h2 style="margin-top: 40px; margin-bottom: 20px;">
+      ⚡ {% if status == 'tiebreak' %}Manche de départage{% else %}Manche {{ rounds|length + 1 }}{% endif %}
+    </h2>
+    <form method="post" action="{{ base_url }}/game/{{ game['id'] }}/round" class="f7-round-form"
+          data-flip7-bonus="{{ flip7_bonus }}" data-target="{{ target_score }}"
+          data-confirm-title="Valider la manche ?">
+      {{ round_entries(round_players, totals) }}
+      <p class="f7-help">
+        Total = chiffres (×2 si carte ×2) + bonus + {{ flip7_bonus }} si Flip 7.
+        Vous pouvez aussi saisir directement le total dans « Chiffres ».
+      </p>
+      <button type="submit" class="button button-submit">✓ Valider la manche</button>
+    </form>
+  {% endif %}
+
+  {% if rounds %}
+  <h2 style="margin-top: 50px; margin-bottom: 20px;">📜 Historique des manches</h2>
+  <div class="rounds-wrap">
+  <table class="rounds-table">
+    <thead>
+      <tr>
+        <th class="round-col">Manche</th>
+        {% for p in players %}<th class="player-col">{{ p }}</th>{% endfor %}
+        <th class="ts-col">Date & heure</th>
+        {% if can_edit %}<th class="edit-col"></th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in rounds %}
+      <tr>
+        <td class="round-col">{{ r['number'] }}{% if r['tiebreak'] %} <span title="Manche de départage">⚖️</span>{% endif %}</td>
+        {% for p in players %}
+        {% set c = r['cells'].get(p) %}
+        <td class="score-cell">
+          {% if c %}
+            {% if c.get('bust') %}<span class="f7-badge f7-badge-bust" title="Doublon">💥</span>{% endif %}
+            {% if c.get('flip7') %}<span class="f7-badge" title="Flip 7">🎯</span>{% endif %}
+            {% if c.get('x2') %}<span class="f7-badge" title="Carte ×2">×2</span>{% endif %}
+            {% if c.get('stop') %}<span class="f7-badge" title="Stop">✋</span>{% endif %}
+            {{ c['score'] }}
+          {% else %}<span class="f7-muted">—</span>{% endif %}
+        </td>
+        {% endfor %}
+        <td class="ts-col">{{ r['timestamp']|format_ts }}</td>
+        {% if can_edit %}
+        <td class="edit-col"><a href="{{ base_url }}/game/{{ game['id'] }}/round/{{ r['number'] }}" class="edit-round-btn" title="Modifier la manche">✏️</a></td>
+        {% endif %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+
+  {% if not game['finished'] and can_edit %}
+  <form method="post" action="{{ base_url }}/game/{{ game['id'] }}/terminate"
+        onsubmit="return confirm('Confirmez-vous la fin de la partie ?');" style="margin-top: 30px; text-align: center;">
+    <button type="submit" class="button" style="background: linear-gradient(135deg, #fc5c7d 0%, #6a82fb 100%);">🏁 Terminer la partie</button>
+  </form>
+  {% endif %}
+
+  <a href="{{ base_url }}/" class="back-button">← Parties Flip 7</a>
+
+  {% if is_admin %}
+  <form method="post" action="{{ base_url }}/game/{{ game['id'] }}/delete"
+        onsubmit="return confirm('Supprimer définitivement cette partie ?');" style="margin-top: 20px; text-align: center;">
+    <button type="submit" class="button button-danger">🗑 Supprimer la partie</button>
+  </form>
+  {% endif %}
+  </div>
+</body>
+</html>

@@ -2,6 +2,20 @@
 
 ## [Non publié]
 
+### Flip 7
+- Nouveau jeu **Flip 7** sous `/familyboardgame/flip7/` : saisie par manche (chiffres, bonus, ×2, Flip 7, Stop, Doublon) avec calcul automatique,
+  fin à 200 points avec manche de départage en cas d'égalité, modification de manche, règles en images, statistiques et palmarès
+- Tables génériques `game_sessions`, `session_players`, `session_scores` (créées au démarrage, aucune table existante modifiée)
+- Logique « joueurs + groupe » de la création de partie extraite dans `core/groups.py`, partagée avec Skyjo
+- Autocomplétion et détection de doublons des noms : incluent les joueurs Flip 7
+- Stats Flip 7 en dalles Metro comme Skyjo (podium, palmarès, parties, joueurs) et page de stats par joueur
+- Hub : tuile Flip 7, images des jeux (`SkyjoAcceuil.png`, `Flip7.webp`) et compteur de parties tous jeux confondus
+- Menu des statistiques : images des jeux à la place des icônes (`SkyjoStat.png`, `SkyjoActionStat.png`, `Flip7.webp`)
+
+### Groupes
+- « Mes groupes » : nombre de parties par jeu (Skyjo, Skyjo Action, Flip 7) au lieu d'un total Skyjo seul
+- Détail d'un groupe : dernières parties tous jeux confondus (jeu et joueurs indiqués), boutons de nouvelle partie Skyjo et Flip 7
+
 ### Déploiement
 - Déploiement automatique par GitHub Actions (rsync, comme les autres sites du VPS) avec sauvegarde de la base avant chaque déploiement ; `deploy.sh` supprimé
 

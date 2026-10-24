@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nouvelle partie — Skyjo</title>
+  <title>Nouvelle partie — {{ page_title|default('Skyjo') }}</title>
   <link rel="stylesheet" href="/familyboardgame/static/style.css">
   <style>
     .player-input-wrapper {
@@ -83,10 +83,12 @@
     }
   </style>
 </head>
-<body>
+<body{% if body_class %} class="{{ body_class }}"{% endif %}>
   <div class="page-content">
-  <h1>Nouvelle partie</h1>
+  <h1>Nouvelle partie{% if single_type %} de {{ default_type }}{% endif %}</h1>
+  {% if not single_type %}
   <p style="font-size: 1.1rem; color: #666; margin-bottom: 30px;">Choisissez le type de jeu</p>
+  {% endif %}
 
   {% with messages = get_flashed_messages() %}
     {% if messages %}
@@ -96,8 +98,8 @@
     {% endif %}
   {% endwith %}
 
-  <!-- Tuiles de sélection du type -->
-  <div id="game-type-selection" class="game-type-grid">
+  <!-- Tuiles de sélection du type (jeux à variantes uniquement) -->
+  <div id="game-type-selection" class="game-type-grid"{% if single_type %} style="display: none;"{% endif %}>
     <div class="game-type-card" data-type="Skyjo">
       <div class="game-type-icon">🎯</div>
       <h2>Skyjo</h2>
@@ -111,13 +113,13 @@
   </div>
 
   <!-- Formulaire caché au début -->
-  <form method="post" action="/skyjo/new" id="game-form" style="display: none;">
+  <form method="post" action="{{ form_action|default('/skyjo/new') }}" id="game-form" style="display: none;">
     <input type="hidden" name="type" id="game-type">
 
     <div style="margin-bottom: 20px;">
-      <h2 style="margin-bottom: 10px;">Type sélectionné : <span id="selected-game-type"></span></h2>
-      <button type="button" id="change-type-btn" class="button button-secondary">Changer de type</button>
-      <button type="button" id="rules-button" class="button button-rules" style="margin-left: 8px;">Voir les règles</button>
+      <h2 style="margin-bottom: 10px;{% if single_type %} display: none;{% endif %}">Type sélectionné : <span id="selected-game-type"></span></h2>
+      <button type="button" id="change-type-btn" class="button button-secondary"{% if single_type %} style="display: none;"{% endif %}>Changer de type</button>
+      <button type="button" id="rules-button" class="button button-rules"{% if not single_type %} style="margin-left: 8px;"{% endif %}>Voir les règles</button>
     </div>
 
     <!-- Sélection du groupe -->
@@ -343,6 +345,7 @@
 
     // Pré-sélection du type de jeu si fourni par l'URL
     var defaultType = {{ default_type|tojson if default_type else 'null' }};
+    var singleType = {{ 'true' if single_type else 'false' }};
     if (defaultType) {
       gameTypeInput.value = defaultType;
       selectedGameTypeSpan.textContent = defaultType;
@@ -375,7 +378,12 @@
     changeTypeBtn.addEventListener('click', showTypeSelection);
 
     // Bouton règles
+    var rulesUrl = {{ rules_url|tojson if rules_url else 'null' }};
     rulesBtn.addEventListener('click', function() {
+      if (rulesUrl) {
+        window.open(rulesUrl, '_blank');
+        return;
+      }
       var gameType = gameTypeInput.value;
       if (gameType && gameType !== '') {
         var url = '/familyboardgame/rules/' + encodeURIComponent(gameType);
@@ -528,11 +536,11 @@
     backButton.addEventListener('click', function(e) {
       e.preventDefault();
       // Si le formulaire est affiché, revenir à la sélection du type
-      if (gameForm.style.display === 'block') {
+      if (gameForm.style.display === 'block' && !singleType) {
         showTypeSelection();
       } else {
-        // Sinon, retour à l'accueil
-        window.location.href = '/skyjo/';
+        // Sinon, retour à l'accueil du jeu
+        window.location.href = {{ home_url|default('/skyjo/')|tojson }};
       }
     });
   });

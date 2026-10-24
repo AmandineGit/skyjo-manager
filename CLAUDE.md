@@ -29,7 +29,9 @@ l'historique de parties doit être préservé.
   source venv/bin/activate
   gunicorn --bind 127.0.0.1:5000 app:app
 ```
-- Test local via Apache reverse proxy :
+- Serveur de dev avec rechargement des templates/CSS/JS : voir README (« Développement local »),
+  `--reload` seul ne recharge pas les templates
+- Test local via Apache reverse proxy (pas directement sur :5000, le préfixe /familyboardgame est retiré par Apache) :
   http://localhost/familyboardgame/ (hub, pages communes) et http://localhost/skyjo/ (jeu Skyjo)
 - Config Apache locale : /etc/apache2/sites-available/skyjo-local.conf
   (ProxyPass /familyboardgame -> 127.0.0.1:5000/, /skyjo -> 127.0.0.1:5000/play)
@@ -37,7 +39,10 @@ l'historique de parties doit être préservé.
 ## Architecture
 - `app.py` : routes communes (hub, auth, groupes, stats, admin), servies sous /familyboardgame/
 - `core/` : db.py (schéma + migrations légères au démarrage), auth.py
-- `games/<jeu>/routes.py` : un blueprint par jeu (Skyjo : préfixe interne /play)
+- `games/<jeu>/routes.py` : un blueprint par jeu (Skyjo : préfixe interne /play ;
+  Flip 7 : /flip7, servi sous /familyboardgame/flip7/ sans règle Apache dédiée)
+- Jeux autres que Skyjo : tables génériques game_sessions / session_players / session_scores
+  (détail de manche spécifique au jeu en JSON dans session_scores.details) ; Skyjo reste sur skyjo_*
 - `scripts/` : scripts de maintenance ponctuels
 - Les liens utilisent les URLs publiques en dur (/familyboardgame/..., /skyjo/...)
 

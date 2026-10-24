@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{ group.name }} — Skyjo</title>
+  <title>{{ group.name }} — Family board games</title>
   <link rel="stylesheet" href="/familyboardgame/static/style.css">
 </head>
 <body>
@@ -81,8 +81,11 @@
         {% if games %}
         <div class="games-list">
           {% for game in games %}
-          <a href="/skyjo/game/{{ game.id }}" class="game-item">
-            <span class="game-type">Partie #{{ game.id }} — {{ game.created_at|format_date_fr }}</span>
+          <a href="{{ game.url }}" class="game-item">
+            <span class="game-type">
+              <strong>{{ game.game_name }}</strong> · Partie #{{ game.id }} — {{ game.created_at|format_date_fr }}
+              {% if game.player_names %}<br><small class="game-players">{{ game.player_names }}</small>{% endif %}
+            </span>
             <span class="game-status {{ 'finished' if game.finished else 'ongoing' }}">
               {{ 'Terminée' if game.finished else 'En cours' }}
             </span>
@@ -111,7 +114,8 @@
     </div>
 
     <div class="page-actions">
-      <a href="/skyjo/new?group={{ group.id }}" class="button button-submit">+ Nouvelle partie</a>
+      <a href="/skyjo/new?group={{ group.id }}" class="button button-submit">+ Partie de Skyjo</a>
+      <a href="/familyboardgame/flip7/new?group={{ group.id }}" class="button button-submit">+ Partie de Flip 7</a>
       <a href="/familyboardgame/stats?group={{ group.id }}" class="button">Statistiques</a>
       <a href="/familyboardgame/groups" class="button button-secondary">← Mes groupes</a>
     </div>

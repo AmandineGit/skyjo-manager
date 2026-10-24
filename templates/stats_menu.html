@@ -37,23 +37,28 @@
   <div class="stats-menu-grid">
     {% for game_type in game_types %}
     <a href="/familyboardgame/stats/{{ game_type }}{% if group_id %}?group={{ group_id }}{% endif %}" class="stats-card">
-      <div class="stats-card-icon">
-        {% if game_type == 'Skyjo' %}
-          🎯
-        {% elif game_type == 'Skyjo Action' %}
-          ⚡
-        {% else %}
-          🎲
-        {% endif %}
-      </div>
+      {% if game_type == 'Skyjo' %}
+      <img src="/familyboardgame/images/SkyjoStat.png" alt="{{ game_type }}" class="stats-card-img">
+      {% elif game_type == 'Skyjo Action' %}
+      <img src="/familyboardgame/images/SkyjoActionStat.png" alt="{{ game_type }}" class="stats-card-img">
+      {% else %}
+      <div class="stats-card-icon">🎲</div>
+      {% endif %}
       <h2>{{ game_type }}</h2>
       <p>{{ games_count[game_type] }} partie{{ 's' if games_count[game_type] > 1 else '' }}</p>
       <p class="stats-card-rounds">{{ rounds_count[game_type] }} round{{ 's' if rounds_count[game_type] > 1 else '' }}</p>
     </a>
     {% endfor %}
+    {% if flip7_count %}
+    <a href="/familyboardgame/flip7/stats{% if group_id %}?group={{ group_id }}{% endif %}" class="stats-card">
+      <img src="/familyboardgame/images/Flip7.webp" alt="Flip 7" class="stats-card-img">
+      <h2>Flip 7</h2>
+      <p>{{ flip7_count }} partie{{ 's' if flip7_count > 1 else '' }}</p>
+    </a>
+    {% endif %}
   </div>
 
-  {% if not game_types %}
+  {% if not game_types and not flip7_count %}
   <div class="empty-state">
     <div class="empty-icon">📊</div>
     <h2>Aucune statistique</h2>

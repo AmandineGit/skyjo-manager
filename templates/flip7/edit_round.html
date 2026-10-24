@@ -1,0 +1,31 @@
+{% from 'flip7/_round_form.html' import round_entries with context %}
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manche {{ round_number }} — Partie #{{ game['id'] }} — Flip 7</title>
+  <link rel="stylesheet" href="/familyboardgame/static/style.css">
+  <script src="/familyboardgame/static/flip7.js" defer></script>
+</head>
+<body class="flip7">
+  <div class="page-content">
+  <h1>✏️ Manche {{ round_number }}</h1>
+  <p style="color: #666; margin-bottom: 20px;">Partie #{{ game['id'] }} — Flip 7</p>
+
+  {% with messages = get_flashed_messages() %}
+    {% for message in messages %}
+      <div class="flash-message">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <form method="post" class="f7-round-form" data-mode="edit"
+        data-flip7-bonus="{{ flip7_bonus }}" data-target="{{ target_score }}"
+        data-confirm-title="Enregistrer la manche {{ round_number }} ?">
+    {{ round_entries(round_players, {}, prefill) }}
+    <button type="submit" class="button button-submit">✓ Enregistrer</button>
+    <a href="{{ base_url }}/game/{{ game['id'] }}" class="button button-secondary">Annuler</a>
+  </form>
+  </div>
+</body>
+</html>

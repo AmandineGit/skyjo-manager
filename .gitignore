@@ -56,3 +56,6 @@ htmlcov/
 
 # Exports temporaires
 export_*.xlsx
+
+# Marqueurs Windows ajoutés aux fichiers téléchargés
+*:Zone.Identifier
