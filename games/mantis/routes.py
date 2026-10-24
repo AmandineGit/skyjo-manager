@@ -6,16 +6,15 @@ Une partie est un journal d'actions dans session_scores (voir games/mantis/scori
 compteur en direct pendant le jeu, fin de partie quand la pioche est vide.
 """
 import json
-from datetime import datetime, timezone
 
 from flask import Blueprint, render_template, request, redirect, flash
 
 from core.auth import require_auth, get_current_user, is_admin
 from core.db import get_db
-from core.groups import get_user_groups, parse_players, resolve_game_group
+from core.game_routes import add_common_routes
 from core.sessions import (
     get_accessible_session, get_session_players, can_edit,
-    list_user_sessions, create_session, delete_session, load_stats_rows,
+    delete_session, next_round_number, insert_score, delete_last_score,
 )
 from games.mantis.scoring import (
     EVENT_SCORE, EVENT_STEAL, EVENT_FIX, EVENT_TANK,
@@ -30,10 +29,6 @@ BASE_URL = '/familyboardgame/mantis'
 mantis_bp = Blueprint('mantis', __name__, url_prefix='/mantis', template_folder='../../templates')
 
 
-@mantis_bp.context_processor
-def inject_constants():
-    return {'base_url': BASE_URL}
-
 
 # ========== Helpers ==========
 
@@ -45,15 +40,7 @@ def _events(session_id):
 
 
 def _add_event(session_id, player, score, details):
-    db = get_db()
-    last = db.execute('SELECT MAX(round_number) AS m FROM session_scores WHERE session_id=?',
-                      (session_id,)).fetchone()['m']
-    db.execute(
-        'INSERT INTO session_scores (session_id, round_number, player_name, score, details, created_at) '
-        'VALUES (?, ?, ?, ?, ?, ?)',
-        (session_id, (last or 0) + 1, player, score, json.dumps(details),
-         datetime.now(timezone.utc).isoformat())
-    )
+    insert_score(session_id, next_round_number(session_id), player, score, details)
 
 
 def _game_url(session_id):
@@ -68,55 +55,10 @@ def _finish(session_id):
 
 # ========== Parties ==========
 
-@mantis_bp.route('/')
-@require_auth
-def index():
-    user = get_current_user()
-    ongoing, finished = [], []
-    for s in list_user_sessions(user, GAME_SLUG):
-        players = get_session_players(s['id'])
-        state = replay(players, _events(s['id']))
-        top = winners(state['totals'], state['tanks'])
-        entry = {'id': s['id'], 'created_at': s['created_at'], 'players': players,
-                 'leaders': top, 'best': max(state['totals'].values()) if players else 0}
-        (finished if s['finished'] else ongoing).append(entry)
-    return render_template('mantis/index.html', ongoing=ongoing, finished=finished[:10], user=user)
-
-
-@mantis_bp.route('/new', methods=['GET', 'POST'])
-@require_auth
-def new_game():
-    user = get_current_user()
-    user_groups = get_user_groups(user)
-
-    if request.method == 'POST':
-        players, error = parse_players(request.form)
-        if not error and len(players) < 2:
-            error = 'Il faut au moins 2 joueurs pour une partie de Mantis.'
-        if error:
-            flash(error)
-            return redirect(f'{BASE_URL}/new')
-
-        db = get_db()
-        cur = db.cursor()
-        now = datetime.now(timezone.utc).isoformat()
-        group_id = resolve_game_group(cur, user, user_groups, request.form, players, now)
-        session_id = create_session(cur, GAME_SLUG, group_id, user, now,
-                                    request.form.get('comments') or '', players)
-        db.commit()
-        return redirect(_game_url(session_id))
-
-    return render_template('new_game.html',
-                           default_type=GAME_NAME,
-                           single_type=True,
-                           page_title=GAME_NAME,
-                           body_class='mantis',
-                           form_action=f'{BASE_URL}/new',
-                           home_url=f'{BASE_URL}/',
-                           rules_url=f'{BASE_URL}/rules',
-                           user_groups=user_groups,
-                           default_group_id=request.args.get('group'),
-                           user=user)
+def _summarize(session_id, players):
+    """Meilleur total et joueur(s) en tête (départage au tank compris), pour la liste des parties."""
+    state = replay(players, _events(session_id))
+    return (max(state['totals'].values()) if players else 0), winners(state['totals'], state['tanks'])
 
 
 @mantis_bp.route('/game/<int:session_id>')
@@ -203,12 +145,8 @@ def undo(session_id):
     if game['finished']:
         flash('La partie est terminée.')
         return redirect(_game_url(session_id))
-    db = get_db()
-    last = db.execute('SELECT MAX(round_number) AS m FROM session_scores WHERE session_id=?',
-                      (session_id,)).fetchone()['m']
-    if last:
-        db.execute('DELETE FROM session_scores WHERE session_id=? AND round_number=?', (session_id, last))
-        db.commit()
+    if delete_last_score(session_id):
+        get_db().commit()
         flash('Dernière action annulée.')
     return redirect(_game_url(session_id))
 
@@ -272,61 +210,8 @@ def reopen(session_id):
     return redirect(_game_url(session_id))
 
 
-@mantis_bp.route('/game/<int:session_id>/delete', methods=['POST'])
-@require_auth
-def delete_game(session_id):
-    user = get_current_user()
-    get_accessible_session(session_id, user, GAME_SLUG)
-    if not is_admin(user):
-        flash('Action réservée à l\'admin')
-        return redirect(_game_url(session_id))
-    delete_session(session_id)
-    flash('Partie supprimée.')
-    return redirect(f'{BASE_URL}/')
-
-
-# ========== Règles et statistiques ==========
-
-@mantis_bp.route('/rules')
-@require_auth
-def rules():
-    return render_template('mantis/rules.html')
-
-
-@mantis_bp.route('/stats')
-@require_auth
-def stats():
-    user = get_current_user()
-    group_id = request.args.get('group')
-    data = load_stats_rows(user, GAME_SLUG, group_id)
-    if data is None:
-        flash('Vous n\'avez pas accès à ce groupe')
-        return redirect(f'{BASE_URL}/stats')
-
-    selected_group = None
-    if group_id:
-        selected_group = get_db().execute('SELECT * FROM player_groups WHERE id = ?', (group_id,)).fetchone()
-
-    return render_template('mantis/stats.html',
-                           stats=compute_stats(*data),
-                           user_groups=get_user_groups(user),
-                           selected_group=selected_group, group_id=group_id)
-
-
-@mantis_bp.route('/stats/player/<player_name>')
-@require_auth
-def player_stats(player_name):
-    user = get_current_user()
-    group_id = request.args.get('group')
-    stats_url = f'{BASE_URL}/stats' + (f'?group={group_id}' if group_id else '')
-    data = load_stats_rows(user, GAME_SLUG, group_id)
-    if data is None:
-        flash('Vous n\'avez pas accès à ce groupe')
-        return redirect(f'{BASE_URL}/stats')
-
-    player = compute_player_stats(player_name, *data)
-    if player is None:
-        flash(f'Aucune statistique Mantis pour {player_name}')
-        return redirect(stats_url)
-
-    return render_template('mantis/player_stats.html', player=player, group_id=group_id, stats_url=stats_url)
+# Routes communes (liste, nouvelle partie, suppression, règles, statistiques) : core/game_routes.py
+add_common_routes(mantis_bp, slug=GAME_SLUG, name=GAME_NAME, base_url=BASE_URL,
+                  summarize=_summarize,
+                  score_unit='cartes',
+                  compute_stats=compute_stats, compute_player_stats=compute_player_stats)

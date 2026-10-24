@@ -6,6 +6,7 @@ from statistics import median
 from collections import defaultdict
 
 from core.sessions import frequent_coplayers, first_game_date
+from core.stats import award
 from games.flip7.scoring import FLIP7_BONUS
 
 # Nombre minimum de manches pour figurer dans les palmarès en pourcentage
@@ -80,12 +81,6 @@ def compute_stats(sessions, session_players, score_rows):
     }
 
 
-def _award(tile, icon, title, value, label, name, details):
-    """Une dalle de palmarès, au format des tuiles Metro des stats Skyjo."""
-    return {'tile': tile, 'icon': icon, 'title': title, 'value': value,
-            'label': label, 'name': name, 'details': details}
-
-
 def _plural(n, word):
     return word + ('s' if n > 1 else '')
 
@@ -98,31 +93,31 @@ def _awards(rows):
     if with_rounds:
         kamikaze = max(with_rounds, key=lambda r: r['bust_rate'])
         if kamikaze['busts']:
-            awards.append(_award('tile-worst', '💥', 'Le Kamikaze', f"{kamikaze['bust_rate']} %", 'de doublons',
+            awards.append(award('tile-worst', '💥', 'Le Kamikaze', f"{kamikaze['bust_rate']} %", 'de doublons',
                                  kamikaze['name'], f"{kamikaze['busts']} {_plural(kamikaze['busts'], 'doublon')} en {kamikaze['rounds']} manches"))
 
     best = max(rows, key=lambda r: r['best_round'] or 0, default=None)
     if best and best['best_round']:
-        awards.append(_award('tile-best', '🚀', 'La manche de rêve', best['best_round'], 'points',
+        awards.append(award('tile-best', '🚀', 'La manche de rêve', best['best_round'], 'points',
                              best['name'], f"Manche #{best['best_round_number']} · Partie #{best['best_round_session']}"))
 
     flip7 = max(rows, key=lambda r: r['flip7s'], default=None)
     if flip7 and flip7['flip7s']:
-        awards.append(_award('tile-f7-flip7', '🎯', 'Le Roi du Flip 7', flip7['flip7s'], 'Flip 7 ' + _plural(flip7['flip7s'], 'réussi'),
+        awards.append(award('tile-f7-flip7', '🎯', 'Le Roi du Flip 7', flip7['flip7s'], 'Flip 7 ' + _plural(flip7['flip7s'], 'réussi'),
                              flip7['name'], f"+{FLIP7_BONUS * flip7['flip7s']} pts de bonus"))
 
     if with_rounds:
         banker = max(with_rounds, key=lambda r: r['stop_rate'])
         if banker['stops']:
-            awards.append(_award('tile-f7-stop', '✋', 'Le Banquier', f"{banker['stop_rate']} %", 'de manches finies par un stop',
+            awards.append(award('tile-f7-stop', '✋', 'Le Banquier', f"{banker['stop_rate']} %", 'de manches finies par un stop',
                                  banker['name'], 'Sait dire stop à temps'))
         prudent = min(with_rounds, key=lambda r: r['bust_rate'])
-        awards.append(_award('tile-f7-prudent', '🛡️', 'Le Prudent', f"{prudent['bust_rate']} %", 'de doublons',
+        awards.append(award('tile-f7-prudent', '🛡️', 'Le Prudent', f"{prudent['bust_rate']} %", 'de doublons',
                              prudent['name'], f"{prudent['rounds']} manches jouées"))
 
     x2 = max(rows, key=lambda r: r['x2s'], default=None)
     if x2 and x2['x2s']:
-        awards.append(_award('tile-precoce', '✖️', 'Le Multiplicateur', x2['x2s'], _plural(x2['x2s'], 'carte') + ' ×2',
+        awards.append(award('tile-precoce', '✖️', 'Le Multiplicateur', x2['x2s'], _plural(x2['x2s'], 'carte') + ' ×2',
                              x2['name'], 'Double la mise'))
     return awards
 

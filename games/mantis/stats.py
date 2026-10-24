@@ -4,9 +4,8 @@ Chaque partie est rejouée à partir de son journal d'actions (voir scoring.repl
 """
 import json
 from collections import defaultdict
-from statistics import median
 
-from core.sessions import frequent_coplayers, first_game_date
+from core.stats import award, player_profile
 from games.mantis.scoring import EVENT_SCORE, replay, winners
 
 
@@ -83,45 +82,30 @@ def compute_stats(sessions, session_players, score_rows):
     }
 
 
-def _award(tile, icon, title, value, label, name, details):
-    """Une dalle de palmarès, au format des tuiles Metro des stats Skyjo."""
-    return {'tile': tile, 'icon': icon, 'title': title, 'value': value,
-            'label': label, 'name': name, 'details': details}
-
-
 def _awards(rows):
     awards = []
     move = max(rows, key=lambda r: r['best_move'], default=None)
     if move and move['best_move']:
-        awards.append(_award('tile-best', '💎', 'Le Gros Coup', move['best_move'], 'cartes marquées d\'un coup',
+        awards.append(award('tile-best', '💎', 'Le Gros Coup', move['best_move'], 'cartes marquées d\'un coup',
                              move['name'], f"Partie #{move['best_move_session']}"))
 
     thief = max(rows, key=lambda r: (r['steals_per_game'], r['steals']), default=None)
     if thief and thief['steals']:
-        awards.append(_award('tile-mantis-steal', '🦐', 'Le Pickpocket', thief['steals_per_game'], 'vols par partie',
+        awards.append(award('tile-mantis-steal', '🦐', 'Le Pickpocket', thief['steals_per_game'], 'vols par partie',
                              thief['name'], f"{thief['steals']} vols au total"))
 
     sprinter = max(rows, key=lambda r: r['sprints'], default=None)
     if sprinter and sprinter['sprints']:
-        awards.append(_award('tile-precoce', '🏃', 'Le Sprinteur', sprinter['sprints'], 'fois premier au seuil',
+        awards.append(award('tile-precoce', '🏃', 'Le Sprinteur', sprinter['sprints'], 'fois premier au seuil',
                              sprinter['name'], 'Premier à 10 cartes (15 à deux)'))
 
     collector = max((r for r in rows if r['best_game'] is not None), key=lambda r: r['best_game'], default=None)
     if collector:
-        awards.append(_award('tile-mantis-collect', '🌈', 'Le Collectionneur', collector['best_game'],
+        awards.append(award('tile-mantis-collect', '🌈', 'Le Collectionneur', collector['best_game'],
                              'cartes en une partie', collector['name'], 'Meilleur score final'))
     return awards
 
 
 def compute_player_stats(player, sessions, session_players, score_rows):
     """Statistiques individuelles d'un joueur ; None s'il n'a joué aucune partie."""
-    base = next((p for p in compute_stats(sessions, session_players, score_rows)['players']
-                 if p['name'] == player), None)
-    if base is None:
-        return None
-    return {
-        **base,
-        'median': median(base['finals']) if base['finals'] else 0,
-        'first_game_date': first_game_date(player, sessions, session_players),
-        'frequent_players': frequent_coplayers(player, session_players),
-    }
+    return player_profile(compute_stats, player, sessions, session_players, score_rows)

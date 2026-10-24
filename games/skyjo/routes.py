@@ -1,7 +1,7 @@
 """
 Routes de gestion de parties Skyjo.
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, flash, jsonify
 from datetime import datetime, timezone
 from core.auth import require_auth, get_current_user, is_admin, get_user_group_ids
 from core.db import get_db, get_totals, normalize_name, format_date_fr

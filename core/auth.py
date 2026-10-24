@@ -2,7 +2,7 @@
 Authentification et autorisation communes à tous les jeux.
 """
 from functools import wraps
-from flask import session, redirect, g
+from flask import session, redirect
 from core.db import get_db
 
 

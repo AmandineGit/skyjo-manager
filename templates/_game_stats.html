@@ -1,0 +1,157 @@
+{# Page de statistiques commune aux jeux génériques (dalles Metro comme Skyjo).
+   Chaque jeu l'étend dans <slug>/stats.html et remplit les blocs propres au jeu :
+   summary, games_tile_secondary, players_tile_secondary, after_tiles, table_head, table_row. #}
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Statistiques — {{ game_name }}</title>
+  <link rel="stylesheet" href="/familyboardgame/static/style.css">
+</head>
+<body class="{{ game_slug }}">
+  <div class="page-content">
+  <div style="margin-bottom: 20px;">
+    <a href="/familyboardgame/stats{% if group_id %}?group={{ group_id }}{% endif %}" class="button button-secondary">← Retour au menu stats</a>
+  </div>
+  <h1>Statistiques - {{ game_name }}</h1>
+
+  {% with messages = get_flashed_messages() %}
+    {% for message in messages %}
+      <div class="flash-message">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <!-- Sélecteur de groupe -->
+  <div class="stats-filter">
+    <label for="group-select">Filtrer par groupe :</label>
+    <select id="group-select" class="group-select" onchange="filterByGroup(this.value)">
+      <option value="">Tous mes groupes</option>
+      {% for group in user_groups %}
+      <option value="{{ group.id }}" {% if group_id and group_id|string == group.id|string %}selected{% endif %}>
+        {{ group.name }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <p style="font-size: 1rem; color: #666; margin-bottom: 25px;">
+    {% if selected_group %}<strong>{{ selected_group.name }}</strong> · {% endif %}
+    {{ stats.total_games }} partie{{ 's' if stats.total_games > 1 else '' }} ·
+    {% block summary %}{{ stats.finished_games }} terminée{{ 's' if stats.finished_games > 1 else '' }}{% endblock %}
+  </p>
+
+  {% if stats.players %}
+  <!-- Tuiles Metro style -->
+  <section class="metro-tiles">
+    <!-- Tuile Podium (victoires) -->
+    <div class="metro-tile tile-podium">
+      <div class="tile-header">
+        <span class="tile-icon">🏆</span>
+        <span class="tile-title">Podium</span>
+      </div>
+      <div class="tile-content">
+        {% for r in stats.podium %}
+        <div class="tile-podium-item {{ ['tile-gold', 'tile-silver', 'tile-bronze'][loop.index0] }}">
+          <span class="tile-medal">{{ ['🥇', '🥈', '🥉'][loop.index0] }}</span>
+          <span class="tile-player">{{ r.name }}</span>
+          <span class="tile-score">{{ r.wins }} 🏆</span>
+        </div>
+        {% else %}
+        <div class="tile-details">Aucune partie terminée</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Tuiles palmarès -->
+    {% for a in stats.awards %}
+    <div class="metro-tile {{ a.tile }}">
+      <div class="tile-header">
+        <span class="tile-icon">{{ a.icon }}</span>
+        <span class="tile-title">{{ a.title }}</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ a.value }}</div>
+        <div class="tile-main-label">{{ a.label }}</div>
+        <div class="tile-player-name">{{ a.name }}</div>
+        <div class="tile-details">{{ a.details }}</div>
+      </div>
+    </div>
+    {% endfor %}
+
+    <!-- Tuile Total parties -->
+    <div class="metro-tile tile-games">
+      <div class="tile-header">
+        <span class="tile-icon">🎮</span>
+        <span class="tile-title">Parties jouées</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ stats.total_games }}</div>
+        <div class="tile-main-label">partie{{ 's' if stats.total_games > 1 else '' }}</div>
+        <div class="tile-secondary-value">{% block games_tile_secondary %}{{ stats.finished_games }} terminée{{ 's' if stats.finished_games > 1 else '' }}{% endblock %}</div>
+      </div>
+    </div>
+
+    <!-- Tuile Total joueurs -->
+    <div class="metro-tile tile-players">
+      <div class="tile-header">
+        <span class="tile-icon">👥</span>
+        <span class="tile-title">Joueurs actifs</span>
+      </div>
+      <div class="tile-content">
+        <div class="tile-main-value">{{ stats.players|length }}</div>
+        <div class="tile-main-label">joueur{{ 's' if stats.players|length > 1 else '' }}</div>
+        <div class="tile-secondary-value">{% block players_tile_secondary %}{% endblock %}</div>
+      </div>
+    </div>
+  </section>
+  {% block after_tiles %}{% endblock %}
+
+  <!-- Tableau détaillé -->
+  <section class="stats-detail-section">
+    <h2>Statistiques détaillées</h2>
+    <div class="table-wrap">
+      <table class="stats-table">
+        <thead>
+          <tr>
+            <th class="rank-col">Rang</th>
+            <th class="player-name-col">Joueur</th>
+            {% block table_head %}{% endblock %}
+          </tr>
+        </thead>
+        <tbody>
+        {% for r in stats.players %}
+          <tr>
+            <td class="rank-col">
+              {% if loop.index <= 3 %}{{ ['🥇', '🥈', '🥉'][loop.index0] }}{% else %}{{ loop.index }}{% endif %}
+            </td>
+            <td class="player-name-col"><a href="{{ base_url }}/stats/player/{{ r.name|urlencode }}{% if group_id %}?group={{ group_id }}{% endif %}" class="player-link"><strong>{{ r.name }}</strong></a></td>
+            {% block table_row scoped %}{% endblock %}
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">📊</div>
+    <h2>Aucune statistique</h2>
+    <p>{% if selected_group %}Aucune partie de {{ game_name }} jouée dans ce groupe{% else %}Aucune partie de {{ game_name }} jouée pour le moment{% endif %}</p>
+  </div>
+  {% endif %}
+
+  </div>
+
+  <script>
+  function filterByGroup(groupId) {
+    var url = '{{ base_url }}/stats';
+    if (groupId) {
+      url += '?group=' + groupId;
+    }
+    window.location.href = url;
+  }
+  </script>
+</body>
+</html>

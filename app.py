@@ -11,11 +11,10 @@ Architecture multi-jeux (Phase 1):
 import os
 import secrets
 from datetime import datetime, timezone, timedelta
-from functools import wraps
 
 from flask import (
     Flask, render_template, request, redirect,
-    url_for, flash, send_from_directory, session, jsonify
+    flash, send_from_directory, session
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -486,11 +485,12 @@ def groups_new():
         )
         group_id = cur.lastrowid
 
-        # Ajouter l'utilisateur comme owner
-        cur.execute(
-            'INSERT INTO group_users (group_id, user_id, role) VALUES (?, ?, ?)',
-            (group_id, user['id'], 'owner')
-        )
+        # Ajouter l'utilisateur comme owner (sauf l'admin, qui voit déjà tous les groupes)
+        if not is_admin(user):
+            cur.execute(
+                'INSERT INTO group_users (group_id, user_id, role) VALUES (?, ?, ?)',
+                (group_id, user['id'], 'owner')
+            )
 
         # Ajouter les membres
         if members:
@@ -538,6 +538,8 @@ def group_detail(group_id):
         WHERE gu.group_id = ?
         ORDER BY gu.role DESC, u.player_name
     ''', (group_id,)).fetchall()
+    # L'admin peut être rattaché à des groupes (création, migration v1) : ce n'est pas un compte joueur lié
+    users = [u for u in users if not is_admin(u)]
     # Dernières parties, tous jeux confondus
     skyjo_games = db.execute('''
         SELECT g.id, g.created_at, g.finished, g.type as game_name,
@@ -625,7 +627,7 @@ def group_edit(group_id):
                         (group_id, invited_user['id'], 'member')
                     )
                     db.commit()
-                    flash(f'Utilisateur invité au groupe')
+                    flash('Utilisateur invité au groupe')
                 else:
                     flash('Cet utilisateur fait déjà partie du groupe')
             else:
@@ -744,7 +746,7 @@ def admin_set_player_name(user_id):
     db.execute('UPDATE users SET player_name = ? WHERE id = ?',
                (player_name or None, user_id))
     db.commit()
-    flash(f'Nom mis à jour')
+    flash('Nom mis à jour')
     return redirect('/familyboardgame/admin')
 
 

@@ -2,7 +2,9 @@
 Accès communs aux parties des jeux génériques
 (tables game_sessions / session_players / session_scores, distinguées par game_slug).
 """
+import json
 from collections import defaultdict
+from datetime import datetime, timezone
 
 from flask import abort
 
@@ -65,6 +67,35 @@ def create_session(cur, game_slug, group_id, user, now, comments, players):
         cur.execute('INSERT INTO session_players (session_id, player_name, position) VALUES (?, ?, ?)',
                     (session_id, p, position))
     return session_id
+
+
+def next_round_number(session_id):
+    """Numéro de la prochaine ligne de score (manche, action ou tour selon le jeu)."""
+    last = get_db().execute('SELECT MAX(round_number) AS m FROM session_scores WHERE session_id=?',
+                            (session_id,)).fetchone()['m']
+    return (last or 0) + 1
+
+
+def insert_score(session_id, round_number, player, score, details):
+    """Ajoute une ligne de score (sans commit) ; details est sérialisé en JSON."""
+    get_db().execute(
+        'INSERT INTO session_scores (session_id, round_number, player_name, score, details, created_at) '
+        'VALUES (?, ?, ?, ?, ?, ?)',
+        (session_id, round_number, player, score, json.dumps(details), datetime.now(timezone.utc).isoformat())
+    )
+
+
+def delete_last_score(session_id):
+    """Supprime la dernière ligne de score (sans commit). Retourne le joueur concerné, ou None si aucune."""
+    db = get_db()
+    last = db.execute(
+        'SELECT round_number, player_name FROM session_scores WHERE session_id=? ORDER BY round_number DESC LIMIT 1',
+        (session_id,)
+    ).fetchone()
+    if not last:
+        return None
+    db.execute('DELETE FROM session_scores WHERE session_id=? AND round_number=?', (session_id, last['round_number']))
+    return last['player_name']
 
 
 def delete_session(session_id):

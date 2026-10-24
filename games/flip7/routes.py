@@ -6,16 +6,15 @@ Blueprint monté sur /flip7 côté Flask, exposé publiquement sous /familyboard
 Données dans les tables génériques game_sessions / session_players / session_scores.
 """
 import json
-from datetime import datetime, timezone
 
 from flask import Blueprint, render_template, request, redirect, flash, abort
 
 from core.auth import require_auth, get_current_user, is_admin
 from core.db import get_db
-from core.groups import get_user_groups, parse_players, resolve_game_group
+from core.game_routes import add_common_routes
 from core.sessions import (
     get_accessible_session, get_session_players, get_totals, can_edit,
-    list_user_sessions, create_session, delete_session, load_stats_rows,
+    delete_session, next_round_number, insert_score,
 )
 from games.flip7.scoring import (
     TARGET_SCORE, FLIP7_BONUS, STATUS_FINISHED, STATUS_TIEBREAK,
@@ -32,7 +31,7 @@ flip7_bp = Blueprint('flip7', __name__, url_prefix='/flip7', template_folder='..
 
 @flip7_bp.context_processor
 def inject_constants():
-    return {'base_url': BASE_URL, 'target_score': TARGET_SCORE, 'flip7_bonus': FLIP7_BONUS}
+    return {'target_score': TARGET_SCORE, 'flip7_bonus': FLIP7_BONUS}
 
 
 # ========== Helpers ==========
@@ -78,56 +77,11 @@ def _flash_outcome(status, leaders, totals):
 
 # ========== Parties ==========
 
-@flip7_bp.route('/')
-@require_auth
-def index():
-    user = get_current_user()
-    ongoing, finished = [], []
-    for s in list_user_sessions(user, GAME_SLUG):
-        players = get_session_players(s['id'])
-        totals = get_totals(s['id'], players)
-        entry = {'id': s['id'], 'created_at': s['created_at'], 'players': players,
-                 'leader': max(totals, key=totals.get) if totals else None,
-                 'best': max(totals.values()) if totals else 0}
-        (finished if s['finished'] else ongoing).append(entry)
-
-    return render_template('flip7/index.html', ongoing=ongoing, finished=finished[:10], user=user)
-
-
-@flip7_bp.route('/new', methods=['GET', 'POST'])
-@require_auth
-def new_game():
-    user = get_current_user()
-    user_groups = get_user_groups(user)
-
-    if request.method == 'POST':
-        players, error = parse_players(request.form)
-        if not error and len(players) < 2:
-            error = 'Il faut au moins 2 joueurs pour une partie de Flip 7.'
-        if error:
-            flash(error)
-            return redirect(f'{BASE_URL}/new')
-
-        db = get_db()
-        cur = db.cursor()
-        now = datetime.now(timezone.utc).isoformat()
-        group_id = resolve_game_group(cur, user, user_groups, request.form, players, now)
-        session_id = create_session(cur, GAME_SLUG, group_id, user, now,
-                                    request.form.get('comments') or '', players)
-        db.commit()
-        return redirect(f'{BASE_URL}/game/{session_id}')
-
-    return render_template('new_game.html',
-                           default_type=GAME_NAME,
-                           single_type=True,
-                           page_title=GAME_NAME,
-                           body_class='flip7',
-                           form_action=f'{BASE_URL}/new',
-                           home_url=f'{BASE_URL}/',
-                           rules_url=f'{BASE_URL}/rules',
-                           user_groups=user_groups,
-                           default_group_id=request.args.get('group'),
-                           user=user)
+def _summarize(session_id, players):
+    """Meilleur total et joueur(s) en tête, pour la liste des parties."""
+    totals = get_totals(session_id, players)
+    best = max(totals.values()) if totals else 0
+    return best, [p for p in players if totals[p] == best]
 
 
 @flip7_bp.route('/game/<int:session_id>')
@@ -184,17 +138,10 @@ def submit_round(session_id):
         flash(error)
         return redirect(game_url)
 
-    db = get_db()
-    last = db.execute('SELECT MAX(round_number) AS m FROM session_scores WHERE session_id=?',
-                      (session_id,)).fetchone()['m']
-    now = datetime.now(timezone.utc).isoformat()
+    round_number = next_round_number(session_id)
     for name, details in entries.items():
-        db.execute(
-            'INSERT INTO session_scores (session_id, round_number, player_name, score, details, created_at) '
-            'VALUES (?, ?, ?, ?, ?, ?)',
-            (session_id, (last or 0) + 1, name, score_from_details(details), json.dumps(details), now)
-        )
-    db.commit()
+        insert_score(session_id, round_number, name, score_from_details(details), details)
+    get_db().commit()
 
     status, leaders = _update_finished(session_id, players, was_finished=False)
     _flash_outcome(status, leaders, get_totals(session_id, players))
@@ -261,61 +208,8 @@ def terminate(session_id):
     return redirect(f'{BASE_URL}/game/{session_id}')
 
 
-@flip7_bp.route('/game/<int:session_id>/delete', methods=['POST'])
-@require_auth
-def delete_game(session_id):
-    user = get_current_user()
-    get_accessible_session(session_id, user, GAME_SLUG)
-    if not is_admin(user):
-        flash('Action réservée à l\'admin')
-        return redirect(f'{BASE_URL}/game/{session_id}')
-    delete_session(session_id)
-    flash('Partie supprimée.')
-    return redirect(f'{BASE_URL}/')
-
-
-# ========== Règles et statistiques ==========
-
-@flip7_bp.route('/rules')
-@require_auth
-def rules():
-    return render_template('flip7/rules.html')
-
-
-@flip7_bp.route('/stats')
-@require_auth
-def stats():
-    user = get_current_user()
-    group_id = request.args.get('group')
-    data = load_stats_rows(user, GAME_SLUG, group_id)
-    if data is None:
-        flash('Vous n\'avez pas accès à ce groupe')
-        return redirect(f'{BASE_URL}/stats')
-
-    selected_group = None
-    if group_id:
-        selected_group = get_db().execute('SELECT * FROM player_groups WHERE id = ?', (group_id,)).fetchone()
-
-    return render_template('flip7/stats.html',
-                           stats=compute_stats(*data),
-                           user_groups=get_user_groups(user),
-                           selected_group=selected_group, group_id=group_id)
-
-
-@flip7_bp.route('/stats/player/<player_name>')
-@require_auth
-def player_stats(player_name):
-    user = get_current_user()
-    group_id = request.args.get('group')
-    stats_url = f'{BASE_URL}/stats' + (f'?group={group_id}' if group_id else '')
-    data = load_stats_rows(user, GAME_SLUG, group_id)
-    if data is None:
-        flash('Vous n\'avez pas accès à ce groupe')
-        return redirect(f'{BASE_URL}/stats')
-
-    player = compute_player_stats(player_name, *data)
-    if player is None:
-        flash(f'Aucune statistique Flip 7 pour {player_name}')
-        return redirect(stats_url)
-
-    return render_template('flip7/player_stats.html', player=player, group_id=group_id, stats_url=stats_url)
+# Routes communes (liste, nouvelle partie, suppression, règles, statistiques) : core/game_routes.py
+add_common_routes(flip7_bp, slug=GAME_SLUG, name=GAME_NAME, base_url=BASE_URL,
+                  summarize=_summarize,
+                  score_unit='points',
+                  compute_stats=compute_stats, compute_player_stats=compute_player_stats)

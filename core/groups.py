@@ -3,7 +3,7 @@ Logique commune à la création de partie : joueurs saisis et groupe associé.
 Partagée entre tous les jeux (Skyjo, Flip 7, ...).
 """
 from core.db import get_db, normalize_name
-from core.auth import get_user_group_ids
+from core.auth import get_user_group_ids, is_admin
 
 
 def get_user_groups(user):
@@ -91,11 +91,12 @@ def resolve_game_group(cur, user, user_groups, form, players, now):
             (new_group_name, user['id'], now)
         )
         group_id = cur.lastrowid
-        # Ajouter l'utilisateur comme owner
-        cur.execute(
-            'INSERT INTO group_users (group_id, user_id, role) VALUES (?, ?, ?)',
-            (group_id, user['id'], 'owner')
-        )
+        # Ajouter l'utilisateur comme owner (sauf l'admin, qui voit déjà tous les groupes)
+        if not is_admin(user):
+            cur.execute(
+                'INSERT INTO group_users (group_id, user_id, role) VALUES (?, ?, ?)',
+                (group_id, user['id'], 'owner')
+            )
         for p in players:
             cur.execute(
                 'INSERT INTO group_members (group_id, player_name) VALUES (?, ?)',

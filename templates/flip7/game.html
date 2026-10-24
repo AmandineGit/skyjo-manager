@@ -98,10 +98,10 @@
     <tbody>
     {% for r in rounds %}
       <tr>
-        <td class="round-col">{{ r['number'] }}{% if r['tiebreak'] %} <span title="Manche de départage">⚖️</span>{% endif %}</td>
+        <td class="round-col" data-label="Manche">{{ r['number'] }}{% if r['tiebreak'] %} <span title="Manche de départage">⚖️</span>{% endif %}</td>
         {% for p in players %}
         {% set c = r['cells'].get(p) %}
-        <td class="score-cell">
+        <td class="score-cell" data-label="{{ p }}">
           {% if c %}
             {% if c.get('bust') %}<span class="f7-badge f7-badge-bust" title="Doublon">💥</span>{% endif %}
             {% if c.get('flip7') %}<span class="f7-badge" title="Flip 7">🎯</span>{% endif %}
@@ -111,7 +111,7 @@
           {% else %}<span class="f7-muted">—</span>{% endif %}
         </td>
         {% endfor %}
-        <td class="ts-col">{{ r['timestamp']|format_ts }}</td>
+        <td class="ts-col" data-label="Date">{{ r['timestamp']|format_ts }}</td>
         {% if can_edit %}
         <td class="edit-col"><a href="{{ base_url }}/game/{{ game['id'] }}/round/{{ r['number'] }}" class="edit-round-btn" title="Modifier la manche">✏️</a></td>
         {% endif %}

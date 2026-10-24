@@ -1,16 +1,17 @@
+{# Liste des parties (en cours, dernières terminées) commune aux jeux génériques ; rendue par core/game_routes.py #}
 <!doctype html>
 <html lang="fr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Flip 7 — Parties</title>
+  <title>{{ game_name }} — Parties</title>
   <link rel="stylesheet" href="/familyboardgame/static/style.css">
 </head>
-<body class="flip7">
+<body class="{{ game_slug }}">
   <div class="page-content">
   <a href="/familyboardgame/" class="button button-secondary" style="margin-bottom: 10px;">← Menu principal</a>
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-    <h1 style="margin: 0;">Flip 7</h1>
+    <h1 style="margin: 0;">{{ game_name }}</h1>
     <div class="user-menu">
       {% if session.get('user_email') == 'admin@skyjo.local' %}
       <a href="/familyboardgame/admin" class="button button-secondary" style="margin: 0;">⚙ Admin</a>
@@ -47,7 +48,7 @@
     <li>
       <a href="{{ base_url }}/game/{{ g['id'] }}">Partie #{{ g['id'] }}</a> — {{ g['created_at']|format_date_fr }}
       — {{ g['players']|join(', ') }}
-      {% if g['best'] %}<span class="f7-muted">(👑 {{ g['leader'] }}, {{ g['best'] }} pts)</span>{% endif %}
+      {% if g['best'] %}<span class="f7-muted">(👑 {{ g['leaders']|join(', ') }}, {{ g['best'] }} {{ score_unit }})</span>{% endif %}
     </li>
   {% else %}
     <li>Aucune partie en cours. <a href="{{ base_url }}/new">Créer une partie</a></li>
@@ -60,7 +61,7 @@
   {% for g in finished %}
     <li>
       <a href="{{ base_url }}/game/{{ g['id'] }}">Partie #{{ g['id'] }}</a> — {{ g['created_at']|format_date_fr }}
-      — 🏆 {{ g['leader'] }} ({{ g['best'] }} pts)
+      — 🏆 {{ g['leaders']|join(', ') }} ({{ g['best'] }} {{ score_unit }})
     </li>
   {% endfor %}
   </ul>

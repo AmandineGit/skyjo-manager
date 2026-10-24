@@ -2080,3 +2080,4 @@ body.mantis::before { background-image: url('/familyboardgame/images/mantis-mate
 /* Statistiques : couleurs des dalles propres à Mantis */
 .tile-mantis-steal { background: linear-gradient(135deg, #a76bd8 0%, #4facfe 100%); }
 .tile-mantis-collect { background: linear-gradient(135deg, #f5576c 0%, #f5b400 50%, #43e97b 100%); }
+

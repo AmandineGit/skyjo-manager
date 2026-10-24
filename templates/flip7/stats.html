@@ -1,117 +1,11 @@
-<!doctype html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Statistiques — Flip 7</title>
-  <link rel="stylesheet" href="/familyboardgame/static/style.css">
-</head>
-<body class="flip7">
-  <div class="page-content">
-  <div style="margin-bottom: 20px;">
-    <a href="/familyboardgame/stats{% if group_id %}?group={{ group_id }}{% endif %}" class="button button-secondary">← Retour au menu stats</a>
-  </div>
-  <h1>Statistiques - Flip 7</h1>
+{% extends '_game_stats.html' %}
 
-  {% with messages = get_flashed_messages() %}
-    {% for message in messages %}
-      <div class="flash-message">{{ message }}</div>
-    {% endfor %}
-  {% endwith %}
+{% block summary %}{{ stats.total_rounds }} manche{{ 's' if stats.total_rounds > 1 else '' }}{% endblock %}
+{% block games_tile_secondary %}{{ stats.total_rounds }} manches{% endblock %}
+{% block players_tile_secondary %}{{ (stats.players|sum(attribute='rounds') / stats.players|length)|round|int }} manches/joueur{% endblock %}
+{% block after_tiles %}<p style="font-size: 0.85rem; color: #666;">Les pourcentages ne comptent que les joueurs ayant joué au moins 5 manches.</p>{% endblock %}
 
-  <!-- Sélecteur de groupe -->
-  <div class="stats-filter">
-    <label for="group-select">Filtrer par groupe :</label>
-    <select id="group-select" class="group-select" onchange="filterByGroup(this.value)">
-      <option value="">Tous mes groupes</option>
-      {% for group in user_groups %}
-      <option value="{{ group.id }}" {% if group_id and group_id|string == group.id|string %}selected{% endif %}>
-        {{ group.name }}
-      </option>
-      {% endfor %}
-    </select>
-  </div>
-
-  <p style="font-size: 1rem; color: #666; margin-bottom: 25px;">
-    {% if selected_group %}<strong>{{ selected_group.name }}</strong> · {% endif %}
-    {{ stats.total_games }} partie{{ 's' if stats.total_games > 1 else '' }} · {{ stats.total_rounds }} manche{{ 's' if stats.total_rounds > 1 else '' }}
-  </p>
-
-  {% if stats.players %}
-  <!-- Tuiles Metro style -->
-  <section class="metro-tiles">
-    <!-- Tuile Podium (victoires) -->
-    <div class="metro-tile tile-podium">
-      <div class="tile-header">
-        <span class="tile-icon">🏆</span>
-        <span class="tile-title">Podium</span>
-      </div>
-      <div class="tile-content">
-        {% for r in stats.podium %}
-        <div class="tile-podium-item {{ ['tile-gold', 'tile-silver', 'tile-bronze'][loop.index0] }}">
-          <span class="tile-medal">{{ ['🥇', '🥈', '🥉'][loop.index0] }}</span>
-          <span class="tile-player">{{ r.name }}</span>
-          <span class="tile-score">{{ r.wins }} 🏆</span>
-        </div>
-        {% else %}
-        <div class="tile-details">Aucune partie terminée</div>
-        {% endfor %}
-      </div>
-    </div>
-
-    <!-- Tuiles palmarès -->
-    {% for a in stats.awards %}
-    <div class="metro-tile {{ a.tile }}">
-      <div class="tile-header">
-        <span class="tile-icon">{{ a.icon }}</span>
-        <span class="tile-title">{{ a.title }}</span>
-      </div>
-      <div class="tile-content">
-        <div class="tile-main-value">{{ a.value }}</div>
-        <div class="tile-main-label">{{ a.label }}</div>
-        <div class="tile-player-name">{{ a.name }}</div>
-        <div class="tile-details">{{ a.details }}</div>
-      </div>
-    </div>
-    {% endfor %}
-
-    <!-- Tuile Total parties -->
-    <div class="metro-tile tile-games">
-      <div class="tile-header">
-        <span class="tile-icon">🎮</span>
-        <span class="tile-title">Parties jouées</span>
-      </div>
-      <div class="tile-content">
-        <div class="tile-main-value">{{ stats.total_games }}</div>
-        <div class="tile-main-label">partie{{ 's' if stats.total_games > 1 else '' }}</div>
-        <div class="tile-secondary-value">{{ stats.total_rounds }} manches</div>
-      </div>
-    </div>
-
-    <!-- Tuile Total joueurs -->
-    <div class="metro-tile tile-players">
-      <div class="tile-header">
-        <span class="tile-icon">👥</span>
-        <span class="tile-title">Joueurs actifs</span>
-      </div>
-      <div class="tile-content">
-        <div class="tile-main-value">{{ stats.players|length }}</div>
-        <div class="tile-main-label">joueur{{ 's' if stats.players|length > 1 else '' }}</div>
-        <div class="tile-secondary-value">{{ (stats.players|sum(attribute='rounds') / stats.players|length)|round|int }} manches/joueur</div>
-      </div>
-    </div>
-  </section>
-  <p style="font-size: 0.85rem; color: #666;">Les pourcentages ne comptent que les joueurs ayant joué au moins 5 manches.</p>
-
-  <!-- Tableau détaillé -->
-  <section class="stats-detail-section">
-    <h2>Statistiques détaillées</h2>
-    <div class="table-wrap">
-      <table class="stats-table">
-        <thead>
-          <tr>
-            <th class="rank-col">Rang</th>
-            <th class="player-name-col">Joueur</th>
+{% block table_head %}
             <th class="stat-col">Victoires</th>
             <th class="stat-col">Moyenne</th>
             <th class="stat-col stat-col-hide-mobile">Meilleure</th>
@@ -120,15 +14,9 @@
             <th class="stat-col stat-col-hide-mobile">🎯 Flip 7</th>
             <th class="stat-col stat-col-hide-mobile">×2</th>
             <th class="stat-col stat-col-hide-mobile">Manches</th>
-          </tr>
-        </thead>
-        <tbody>
-        {% for r in stats.players %}
-          <tr>
-            <td class="rank-col">
-              {% if loop.index <= 3 %}{{ ['🥇', '🥈', '🥉'][loop.index0] }}{% else %}{{ loop.index }}{% endif %}
-            </td>
-            <td class="player-name-col"><a href="{{ base_url }}/stats/player/{{ r.name|urlencode }}{% if group_id %}?group={{ group_id }}{% endif %}" class="player-link"><strong>{{ r.name }}</strong></a></td>
+{% endblock %}
+
+{% block table_row %}
             <td class="stat-col">{{ r.wins }}/{{ r.games }}</td>
             <td class="stat-col">{{ '%.1f'|format(r.avg) }}</td>
             <td class="stat-col stat-col-hide-mobile stat-best">{{ r.best_round if r.best_round is not none else '—' }}</td>
@@ -137,31 +25,4 @@
             <td class="stat-col stat-col-hide-mobile">{{ r.flip7s }}</td>
             <td class="stat-col stat-col-hide-mobile">{{ r.x2s }}</td>
             <td class="stat-col stat-col-hide-mobile">{{ r.rounds }}</td>
-          </tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  {% else %}
-  <div class="empty-state">
-    <div class="empty-icon">📊</div>
-    <h2>Aucune statistique</h2>
-    <p>{% if selected_group %}Aucune partie de Flip 7 jouée dans ce groupe{% else %}Aucune partie de Flip 7 jouée pour le moment{% endif %}</p>
-  </div>
-  {% endif %}
-
-  </div>
-
-  <script>
-  function filterByGroup(groupId) {
-    var url = '{{ base_url }}/stats';
-    if (groupId) {
-      url += '?group=' + groupId;
-    }
-    window.location.href = url;
-  }
-  </script>
-</body>
-</html>
+{% endblock %}
